@@ -160,7 +160,7 @@ import { ModuleProxy } from "microse";
 declare global {
     namespace app {
         namespace services {
-            const user: ModuleProxy<typeof UserService>
+            const user: ModuleProxy<UserService>
         }
     }
 }

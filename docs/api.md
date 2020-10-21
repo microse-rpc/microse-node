@@ -12,9 +12,14 @@ type ModuleProxy<T> = T & {
 
     /** The name (with namespace) of the module. */
     readonly name: string;
-
     /** The path (without extension) of the module. */
     readonly path: string;
+    /** The very exports object of the module. */
+    readonly exports: any;
+    /** The very prototype of the module. */
+    readonly proto: EnsureInstanceType<T>;
+    /** The very class constructor of the module. */
+    readonly ctor: T extends Function ? T : new (...args: any[]) => EnsureInstanceType<T>;
 }
 ```
 

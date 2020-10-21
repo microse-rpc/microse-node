@@ -1,19 +1,20 @@
-import "../header";
-import {
-    ModuleProxy,
-    createModuleProxy
-} from "./proxy";
+import { ModuleProxy } from "../header";
+import { ModuleProxy as ModuleProxyBase, createModuleProxy } from "./proxy";
+import { ChannelOptions, RpcChannel } from '../rpc/channel';
 import { RpcClient, ClientOptions } from "../rpc/client";
 import { dict } from "../util";
 import define from "@hyurl/utils/define";
 
 export {
+    RpcChannel,
+    ChannelOptions,
     RpcClient,
     ClientOptions,
-    createModuleProxy
+    createModuleProxy,
+    ModuleProxy
 };
 
-export class ModuleProxyApp extends ModuleProxy {
+export class ModuleProxyApp extends ModuleProxyBase {
     protected remoteSingletons = dict();
     protected __children = dict();
 
