@@ -1,0 +1,26 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "es2017",
+        "preserveConstEnums": true,
+        "rootDirs": [
+            ".",
+            "../src"
+        ],
+        "outDir": "./.build",
+        "experimentalDecorators": true,
+        "newLine": "LF",
+        "noUnusedParameters": true,
+        "noUnusedLocals": true,
+        "importHelpers": true,
+        "pretty": true,
+        "removeComments": true,
+        "sourceMap": true,
+        "noImplicitThis": true
+    },
+    "includes": [
+        "*.ts",
+        "./*/*.ts",
+        "./*/*/*.ts"
+    ]
+}

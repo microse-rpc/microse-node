@@ -1,0 +1,7 @@
+.vscode/
+dist/
+node_modules/
+*.sock
+*.tgz
+test/.build
+client-bundle/
