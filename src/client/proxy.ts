@@ -25,9 +25,9 @@ export function createModuleProxy(
             let index = name.lastIndexOf(".");
             let modName = name.slice(0, index);
             let method = name.slice(index + 1);
+            let singletons = app["remoteSingletons"][modName];
 
-            if (!isEmpty(app["remoteSingletons"][modName])) {
-                let singletons = app["remoteSingletons"][modName];
+            if (!isEmpty(singletons)) {
                 let route = args[0] || "";
                 let ins: any;
 

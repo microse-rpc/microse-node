@@ -48,10 +48,10 @@ export function createModuleProxy(
             let index = name.lastIndexOf(".");
             let modName = name.slice(0, index);
             let method = name.slice(index + 1);
+            let singletons = app["remoteSingletons"][modName];
 
-            if (!isEmpty(app["remoteSingletons"][modName])) {
-                let singletons = app["remoteSingletons"][modName];
-                let route = args[0] || "";
+            if (!isEmpty(singletons)) {
+                let route = args[0] ?? "";
 
                 // If the route matches any key of the remoteSingletons,
                 // return the corresponding singleton as wanted.

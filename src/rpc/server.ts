@@ -230,7 +230,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
 
     async register<T>(mod: ModuleProxy<T>) {
         this.registry[mod.name] = mod;
-        tryLifeCycleFunction(<any>mod, "init", this.handleError);
+        await tryLifeCycleFunction(<any>mod, "init", this.handleError);
     }
 
     /**

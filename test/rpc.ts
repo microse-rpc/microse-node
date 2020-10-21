@@ -22,7 +22,7 @@ describe("Remote Instance", () => {
         if (process.platform === "win32")
             return;
 
-        let sockPath = process.cwd() + "/microse.sock";
+        let sockPath = process.cwd() + "/test.sock";
         let serverProcess = await fork(__dirname + "/server/index.js", { USE_IPC: sockPath });
 
         let client = await App.connect(sockPath);
