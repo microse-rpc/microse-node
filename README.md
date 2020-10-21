@@ -76,14 +76,14 @@ export default class Bootstrap {
 ```
 
 ```typescript
-// src/models/user.ts
+// src/models/User.ts
 import { ModuleProxy } from "microse";
 
 declare global {
     namespace app {
         namespace models {
             // a module class with parameters must use the signature `typeof T`.
-            const user: ModuleProxy<typeof User>
+            const User: ModuleProxy<typeof User>
         }
     }
 }
@@ -111,18 +111,17 @@ import "./app";
 app.bootstrap.init();
 
 // Using `new` syntax on the module to create a new instance.
-var user = new app.models.user("Mr. Handsome");
+var user = new app.models.User("Mr. Handsome");
 
 console.log(user.getName()); // Mr. Handsome
 ```
 
-### Prototype Module
+### Non-class Module
 
-Any module that exports an object as default will be considered as a prototype 
-module, when creating a new instance of that module, the object will be used as
-a prototype (a deep clone will be created, if an argument is passed, it will be
-merged into the new object). However when calling the singleton of that module,
-the original object itself will be returned.
+If a module doesn't have a default class exported, the module it it self will be
+used instead, moreover, if the module exports an default object, it will be used
+as a  prototype, when creating a new instance of the module, a deep clone will
+be created, if an argument is passed, it will be merged into the new object.
 
 ```typescript
 // src/config.ts
@@ -130,17 +129,28 @@ import { ModuleProxy } from "microse";
 
 declare global {
     namespace app {
-        const config: ModuleProxy<Config>;
+        const config: {
+            get(key: string): Promise<any>
+        }
     }
 }
 
-export interface Config {
-    // ...
-}
+export const hostname = "127.0.0.1";
+export const port = 80;
 
-export default <Config>{
-    // ...
+export async function get(key: string) {
+    // some async operations...
+    return value
 }
+```
+
+```ts
+// Use `exports` property to access the module original exports:
+const config = app.config.exports;
+print(`${config.hostname}:${config.port}`) // 127.0.0.1:80
+
+// Functions can be called directly:
+console.log(await app.config.get("someKey"))
 ```
 
 ## Remote Service
@@ -223,6 +233,9 @@ NOTE: to ship a service in multiple server nodes, just create and connect to
 multiple channels, and register the service to each of them, when calling remote
 functions, microse will automatically calculate routes and redirect traffics to
 them.
+
+NOTE: RPC calling will serialize all input and output data, those data that
+cannot be serialized will be lost during transmission.
 
 ### Hot-reloading in Remote Service
 
@@ -361,9 +374,8 @@ import { ModuleProxyApp } from "microse/client";
 const app = global.app = new ModuleProxyApp("app"); // no path needed
 
 (async () => {
-    client = await app.connect("ws://localhost:4000");
-    
-    await client.register(app.services.user)
+    channel = await app.connect("ws://localhost:4000");
+    await channel.register(app.services.user)
 })();
 ```
 

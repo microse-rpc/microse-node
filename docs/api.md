@@ -23,9 +23,6 @@ type ModuleProxy<T> = T & {
 }
 ```
 
-**NOTE: RPC calling will serialize all input and output data, those data that**
-**cannot be serialized will be lost during transmission.**
-
 ## ModuleProxyApp
 
 ```typescript
