@@ -189,11 +189,11 @@ export default class UserService {
 import { App } from "./app";
 
 (async () => {
-    let service = await App.serve("ws://localhost:4000");
+    let channel = await App.serve("ws://localhost:4000");
 
-    await service.register(app.services.user);
+    await channel.register(app.services.user);
 
-    console.log("Service started!");
+    console.log("Server started!");
 })();
 ```
 
@@ -207,10 +207,10 @@ And in **index.ts**, connect to the service before using remote functions:
 import { App } from "./app";
 
 (async () => {
-    let service = await App.connect("ws://localhost:4000");
+    let channel = await App.connect("ws://localhost:4000");
 
     // Once registered, all functions of the service module will be remotized.
-    await service.register(app.services.user);
+    await channel.register(app.services.user);
 
     // Accessing the instance in local style but actually calling remote.
     let fullName = await app.services.user.getFullName("David");
@@ -218,6 +218,11 @@ import { App } from "./app";
     console.log(fullName); // David Wood
 })();
 ```
+
+NOTE: to ship a service in multiple server nodes, just create and connect to
+multiple channels, and register the service to each of them, when calling remote
+functions, microse will automatically calculate routes and redirect traffics to
+them.
 
 ### Hot-reloading in Remote Service
 
