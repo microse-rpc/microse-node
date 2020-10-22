@@ -1,8 +1,8 @@
 # Microse
 
 Microse (stands for *Micro Remote Object Serving Engine*) is a light-weight
-engine that provides applications the ability to auto-load modules and serve
-them remotely as RPC services.
+engine that provides applications the ability to serve modules as RPC services,
+whether in another process or in another machine.
 
 For API reference, please check the [API documentation](./docs/api.md),
 or the [Protocol Reference](./docs/protocol.md).
@@ -13,21 +13,7 @@ or the [Protocol Reference](./docs/protocol.md).
 npm i microse
 ```
 
-## Auto-loading and Hot-reloading
-
-In NodeJS (with CommonJS module solution), `require` and `import` will
-immediately load the corresponding module and make a reference in the current
-scope. That means, if the module doesn't finish initiation, e.g. circular
-import, the application may not work as expected. And if the module file is
-modified, the application won't be able to reload that module without
-restarting the program.
-
-Microse, on the other hand, based on the namespace and ES6 proxy, it creates a 
-*"soft-link"* of the module, and only import the module when truly needed. And
-since it's soft-linked, when the module file is changed, it has the ability to
-wipe out the memory cache and reload the module with very few side-effects.
-
-## How to use?
+## Peel The Onion
 
 In order to use microse, one must create a root `ModuleProxyApp` instance and
 assign it to the global scope, so other files can directly use it as a root
@@ -46,9 +32,6 @@ declare global {
 
 // Create the instance.
 export const App = global["app"] = new ModuleProxyApp("app", __dirname);
-
-// Watch file changes and hot-reload modules.
-App.watch();
 ```
 
 In other files, just define and export a default class, and merge the type to 
@@ -82,7 +65,8 @@ import { ModuleProxy } from "microse";
 declare global {
     namespace app {
         namespace models {
-            // a module class with parameters must use the signature `typeof T`.
+            // a class with constructor parameters must use the signature
+            // `typeof T`.
             const User: ModuleProxy<typeof User>
         }
     }
@@ -107,7 +91,7 @@ And other files can access to the modules via the namespace:
 // src/index.ts
 import "./app";
 
-// Accessing the module as a singleton and call its function directly.
+// Accessing the module as a singleton and calling its function directly.
 app.bootstrap.init();
 
 // Using `new` syntax on the module to create a new instance.
@@ -145,7 +129,7 @@ export async function get(key: string) {
 ```
 
 ```ts
-// Use `exports` property to access the module original exports:
+// Use `exports` property to access the module's original exports:
 const config = app.config.exports;
 print(`${config.hostname}:${config.port}`) // 127.0.0.1:80
 
@@ -155,8 +139,9 @@ console.log(await app.config.get("someKey"))
 
 ## Remote Service
 
-RPC is the central part of microse engine, which allows user to serve a module
-remotely, whether in another process or in another machine.
+The above examples access the modules and their functions in the current process,
+but we can do more, we can serve a module as a remote service, and calls its
+functions as remote procedures.
 
 ### Example
 
@@ -237,18 +222,6 @@ them.
 NOTE: RPC calling will serialize all input and output data, those data that
 cannot be serialized will be lost during transmission.
 
-### Hot-reloading in Remote Service
-
-The local watcher may notice the local file has been changed and try to reload
-the local module (and the local singleton), however, it will not affect any
-remote instances, that said, the instance served remotely can still be watched
-and reloaded on the remote server individually.
-
-In the above example, since the **remote-service.ts** module imports **app.ts**
-module as well, which starts the watcher, when the **user.ts** module is changed,
-the **remote-service.ts** will reload the module as expected, and the
-**index.ts** calls it remotely will get the new result as expected.
-
 ## Generator Support
 
 When in the need of transferring large data, generator functions could be a
@@ -326,17 +299,13 @@ export default class UserService {
 })();
 ```
 
-## Life Cycle Support
+## Lifecycle Support
 
 Microse provides a way to support life cycle functions, if a service class has
 an `init()` method, it will be used for asynchronous initiation, and if the
 class has a `destroy()` method, it will be used for asynchronous destruction.
 With these feature, the service class can, for example, connect to a database
 when starting the server and release the connection when the server shuts down.
-
-This feature will still work after hot-reloaded the module. However, there
-would be a slight downtime during hot-reloading, and any call would fail until
-the service is re-available again.
 
 ```ts
 // src/services/user.ts
@@ -366,7 +335,10 @@ codebase, Instead of importing from the main module, we import the
 `microse/client` sub-module, which is designed to be run in standalone Node.js
 programs or even web apps. The client will not actually load any modules since
 there are no such files, instead, it just map the module names so you can use
-them as usual. To create a standalone client, use the following code:
+them as usual.
+
+In the following example, we assume that `app.services.user` service is served
+by a Python program, and we can use it in our Node.js program as usual.
 
 ```ts
 import { ModuleProxyApp } from "microse/client";
@@ -375,7 +347,11 @@ const app = global.app = new ModuleProxyApp("app"); // no path needed
 
 (async () => {
     channel = await app.connect("ws://localhost:4000");
-    await channel.register(app.services.user)
+    await channel.register(app.services.user);
+
+    let fullName = await app.services.user.getFullName("David");
+
+    console.log(fullName); // David Wood
 })();
 ```
 
@@ -393,9 +369,44 @@ declare global {
 }
 
 interface UserService { // or use `declare class`
-    getName(id: number): Promise<string>;
-    setName(id: number, name: string): void;
+    getFullName(firstName: number): Promise<string>;
 }
 ```
+
+You can visit the python version of microse from
+[hyurl/microse-py](https://github.com/hyurl/microse-py).
+
+## Auto-loading and Hot-reloading
+
+In NodeJS (with CommonJS module solution), `require` and `import` will
+immediately load the corresponding module and make a reference in the current
+scope. That means, if the module doesn't finish initiation, e.g. circular
+import, the application may not work as expected. And if the module file is
+modified, the application won't be able to reload that module without
+restarting the program.
+
+Microse, on the other hand, based on the namespace and ES6 proxy, it creates a 
+*"soft-link"* of the module, and only import the module when truly needed
+(calling a method/function or create a new instance). And since it's soft-linked,
+when the module file is changed, it has the ability to wipe out the memory cache
+and reload the module with very few side-effects.
+
+```ts
+// Watch file changes and hot-reload modules.
+App.watch();
+```
+
+### Hot-reloading Supports Lifecycle Functions
+
+Lifecycle function will work well during hot-reloading, if a program file is
+changed and the program is about to reload it, the `destroy()` function will be
+called to release sources before *unloading* the module, and after the module is
+reloaded, the `init()` function will be called again to initiate the new service.
+
+### Hot-reloading for Remote Service
+
+Once a remote service enters hot-reloading stage, it will be marked as
+unavailable temporarily, all remote calls will be automatically avoided from
+redirecting traffic to that server until the module finishes reloading.
 
 For more details, please check the [API documentation](./docs/api.md).
