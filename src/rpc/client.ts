@@ -173,7 +173,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
                 if (ev?.["error"]) {
                     reject(ev["error"]);
                 } else {
-                    reject(new Error(`Cannot connect to ${this.dsn}`));
+                    reject(new Error(`Cannot connect to ${this.serverId}`));
                 }
             };
         });
@@ -525,7 +525,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
 
 class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
     readonly taskId: number = this.client.taskId.next().value;
-    protected status: "pending" | "closed" = "pending";
+    protected state: "pending" | "closed" = "pending";
     protected result: any;
 
     /**
@@ -566,10 +566,10 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
 
     then(resolver: (data: any) => any, rejecter: (err: any) => any) {
         return Promise.resolve(this.result).then((res) => {
-            // Mark the status to closed, so that any operations on the current
+            // Mark the state to closed, so that any operations on the current
             // generator after will return the local result instead of
             // requesting the remote service again.
-            this.status = "closed";
+            this.state = "closed";
             this.result = res;
 
             // With INVOKE event, the task will finish immediately after
@@ -582,7 +582,7 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
     }
 
     protected close() {
-        this.status = "closed";
+        this.state = "closed";
 
         // Stop all pending tasks.
         for (let task of this.queue) {
@@ -657,14 +657,14 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
     protected creatTask(call: { readonly stack: string; }) {
         return {
             resolve: (data: any) => {
-                if (this.status === "pending") {
+                if (this.state === "pending") {
                     if (this.queue.length > 0) {
                         this.queue.shift().resolve(data);
                     }
                 }
             },
             reject: (err: any) => {
-                if (this.status === "pending") {
+                if (this.state === "pending") {
                     if (this.queue.length > 0) {
                         this.resolveStackTrace(err, call);
                         this.queue.shift().reject(err);
@@ -692,11 +692,7 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
         }, this.client.timeout);
     }
 
-    /**
-     * @param genData Used for generator calls as the yielded/thrown data when
-     *  the iterator is closed early.
-     */
-    protected prepareTask(event: ChannelEvents, genData?: any): Promise<any> {
+    protected prepareTask(event: ChannelEvents, args?: any[]): Promise<any> {
         let call = this.captureStackTrack();
 
         if (!this.client.tasks.has(this.taskId)) {
@@ -711,7 +707,9 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
 
             this.queue.push({
                 event,
-                data: genData,
+                // 'data' is used for generator calls as the yielded/thrown data
+                // when the iterator is closed early.
+                data: args[0],
                 resolve: (data: any) => {
                     clearTimeout(timer);
                     resolve(data);
@@ -721,11 +719,19 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
                     reject(err);
                 }
             });
+
+            this.client.send(
+                event,
+                this.taskId,
+                this.modName,
+                this.method,
+                args
+            );
         });
     }
 
     protected async invokeTask(event: ChannelEvents, ...args: any[]): Promise<any> {
-        if (this.status === "closed") {
+        if (this.state === "closed") {
             switch (event) {
                 case ChannelEvents.INVOKE:
                     return this.result;
@@ -740,22 +746,14 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
                     throw args[0];
             }
         } else {
-            this.client.send(
-                event,
-                this.taskId,
-                this.modName,
-                this.method,
-                args
-            );
-
             try {
-                let res = await this.prepareTask(event, args[0]);
+                let res = await this.prepareTask(event, args);
 
                 if (event !== ChannelEvents.INVOKE) {
                     ("value" in res) || (res.value = void 0);
 
                     if (res.done) {
-                        this.status = "closed";
+                        this.state = "closed";
                         this.result = res.value;
                         this.client.tasks.delete(this.taskId);
                     }
@@ -763,7 +761,7 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
 
                 return res;
             } catch (err) {
-                this.status = "closed";
+                this.state = "closed";
                 this.client.tasks.delete(this.taskId);
 
                 throw err;
