@@ -33,12 +33,12 @@ export class RpcServer extends RpcChannel implements ServerOptions {
     /** The unique ID of the server, used for the client routing requests. */
     readonly id: string;
     readonly httpServer: http.Server | https.Server;
-    protected wsServer: WebSocket.Server = null;
-    protected registry: { [name: string]: ModuleProxy<any>; } = dict();
-    protected clients = new Map<WebSocket, string>();
+    private wsServer: WebSocket.Server = null;
+    private registry: { [name: string]: ModuleProxy<any>; } = dict();
+    private clients = new Map<WebSocket, string>();
     /** Stores the all suspended generator calls. */
-    protected tasks = new Map<WebSocket, Map<number, ThenableAsyncGenerator>>();
-    protected proxyRoot: ModuleProxyApp = null;
+    private tasks = new Map<WebSocket, Map<number, ThenableAsyncGenerator>>();
+    private proxyRoot: ModuleProxyApp = null;
     private useExternalHttpServer: boolean;
 
     constructor(url: string);
@@ -261,7 +261,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
         return clients;
     }
 
-    protected dispatch(
+    private dispatch(
         socket: WebSocket,
         event: ChannelEvents,
         taskId: number | string,
@@ -291,7 +291,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
         }
     }
 
-    protected handleConnection(socket: WebSocket, _: http.IncomingMessage) {
+    private handleConnection(socket: WebSocket, _: http.IncomingMessage) {
         socket.on("error", err => {
             // When any error occurs, if it's a socket reset error, e.g.
             // client disconnected unexpected, the server could just 
@@ -311,108 +311,131 @@ export class RpcServer extends RpcChannel implements ServerOptions {
             }
         }).on("ping", (data) => {
             socket.pong(data);
-        }).on("message", async (msg: string | Buffer) => {
-            let req: Request;
+        }).on("message", this.handleMessage.bind(this, socket));
+    }
 
-            try {
-                if (typeof msg === "string") {
-                    req = JSON.parse(msg);
-                }
-            } catch (err) {
-                this.handleError(err);
+    private async handleMessage(socket: WebSocket, msg: string | Buffer) {
+        let req: Request;
+
+        try {
+            if (typeof msg === "string") {
+                req = JSON.parse(msg);
+            }
+        } catch (err) {
+            this.handleError(err);
+        }
+
+        if (!Array.isArray(req) || typeof req[0] !== "number")
+            return;
+
+        let [event, taskId, modName, method, args = []] = req;
+
+        if (event === ChannelEvents.THROW && typeof args[0] === "object") {
+            args[0] = utils.object2error(args[0]);
+        } else if (this.codec === "CLONE") {
+            args = decompose(args);
+        }
+
+        switch (event) {
+            case ChannelEvents.INVOKE:
+                await this.handleInvokeEvent(
+                    socket, taskId, modName, method, args);
+                break;
+
+            case ChannelEvents.YIELD:
+            case ChannelEvents.RETURN:
+            case ChannelEvents.THROW: {
+                await this.handleGeneratorEvents(
+                    socket, event, taskId, modName, method, args[0]);
+                break;
             }
 
-            if (!Array.isArray(req) || typeof req[0] !== "number")
-                return;
+            case ChannelEvents.PING: {
+                this.dispatch(socket, ChannelEvents.PONG, taskId);
+                break;
+            }
+        }
+    }
 
-            let [event, taskId, modName, method, args = []] = req;
+    private async handleInvokeEvent(
+        socket: WebSocket,
+        taskId: number,
+        modName: string,
+        method: string,
+        args: any[]
+    ) {
+        let tasks = this.tasks.get(socket);
+        let event: ChannelEvents;
+        let data: any;
 
-            if (event === ChannelEvents.THROW && typeof args[0] === "object") {
-                args[0] = utils.object2error(args[0]);
-            } else if (this.codec === "CLONE") {
-                args = decompose(args);
+        try {
+            // Connect to the singleton instance and invokes it's
+            // method to handle the request.
+            let app = this.registry[modName][root];
+            let ins = getInstance(app, modName);
+
+            if (isOwnKey(ins, readyState) && ins[readyState] !== 1) {
+                throwUnavailableError(modName);
             }
 
-            switch (event) {
-                case ChannelEvents.INVOKE: {
-                    let data: any;
-                    let tasks = this.tasks.get(socket);
+            let task = ins[method].apply(ins, args);
 
-                    try {
-                        // Connect to the singleton instance and invokes it's
-                        // method to handle the request.
-                        let app = this.registry[modName][root];
-                        let ins = getInstance(app, modName);
-
-                        if (isOwnKey(ins, readyState) && ins[readyState] !== 1) {
-                            throwUnavailableError(modName);
-                        }
-
-                        let task = ins[method].apply(ins, args);
-
-                        if (task && isIteratorLike(task)) {
-                            tasks.set(<number>taskId, task);
-                            event = ChannelEvents.INVOKE;
-                        } else {
-                            data = await task;
-                            event = ChannelEvents.RETURN;
-                        }
-                    } catch (err) {
-                        event = ChannelEvents.THROW;
-                        data = err;
-                    }
-
-                    // Send response or error to the client.
-                    this.dispatch(socket, event, taskId, data);
-                    break;
-                }
-
-                case ChannelEvents.YIELD:
-                case ChannelEvents.RETURN:
-                case ChannelEvents.THROW: {
-                    let data: any, input: any;
-                    let tasks = this.tasks.get(socket);
-                    let task = tasks.get(<number>taskId);
-
-                    try {
-                        if (!task) {
-                            let callee = `${modName}.${method}()`;
-                            throw new ReferenceError(`Failed to call ${callee}`);
-                        } else {
-                            input = args[0];
-                        }
-
-                        // Invokes the generator's method according to
-                        // the event.
-                        if (event === ChannelEvents.YIELD) {
-                            data = await task.next(input);
-                        } else if (event === ChannelEvents.RETURN) {
-                            data = await task.return(input);
-                        } else {
-                            // Calling the throw method will cause an error
-                            // being thrown and go to the catch block.
-                            await task.throw(input);
-                        }
-
-                        if (data.done) {
-                            event = ChannelEvents.RETURN;
-                            tasks.delete(<number>taskId);
-                        }
-                    } catch (err) {
-                        event = ChannelEvents.THROW;
-                        data = err;
-                        task && tasks.delete(<number>taskId);
-                    }
-
-                    this.dispatch(socket, event, taskId, data);
-                    break;
-                }
-
-                case ChannelEvents.PING: {
-                    this.dispatch(socket, ChannelEvents.PONG, taskId);
-                    break;
-                }
+            if (task && isIteratorLike(task)) {
+                tasks.set(<number>taskId, task);
+                event = ChannelEvents.INVOKE;
+            } else {
+                data = await task;
+                event = ChannelEvents.RETURN;
             }
-        });
+        } catch (err) {
+            event = ChannelEvents.THROW;
+            data = err;
+        }
+
+        // Send response or error to the client.
+        this.dispatch(socket, event, taskId, data);
+    }
+
+    private async handleGeneratorEvents(
+        socket: WebSocket,
+        event: ChannelEvents,
+        taskId: number,
+        modName: string,
+        method: string,
+        input: any
+    ) {
+        let tasks = this.tasks.get(socket);
+        let task = tasks.get(<number>taskId);
+        let data: any;
+
+        try {
+            if (!task) {
+                let callee = `${modName}.${method}()`;
+                throw new ReferenceError(`Failed to call ${callee}`);
+            }
+
+            // Invokes the generator's method according to
+            // the event.
+            if (event === ChannelEvents.YIELD) {
+                data = await task.next(input);
+            } else if (event === ChannelEvents.RETURN) {
+                data = await task.return(input);
+            } else {
+                // Calling the throw method will cause an error
+                // being thrown and go to the catch block.
+                await task.throw(input);
+            }
+
+            if (data.done) {
+                event = ChannelEvents.RETURN;
+                tasks.delete(<number>taskId);
+            }
+        } catch (err) {
+            event = ChannelEvents.THROW;
+            data = err;
+            task && tasks.delete(<number>taskId);
+        }
+
+        this.dispatch(socket, event, taskId, data);
     }
 }

@@ -55,12 +55,12 @@ export class RpcClient extends RpcChannel implements ClientOptions {
     readonly pingInterval: number;
     readonly pingTimeout: number;
     readonly rejectUnauthorized: boolean;
-    protected state: ChannelState = "initiated";
-    protected socket: WebSocket = null;
-    protected registry: { [name: string]: ModuleProxyType<any>; } = dict();
+    private state: ChannelState = "initiated";
+    private socket: WebSocket = null;
+    private registry: { [name: string]: ModuleProxyType<any>; } = dict();
     readonly taskId = sequid(0, true);
     readonly tasks = new Map<number, Task>();
-    protected topics = new Map<string, Set<Subscriber>>();
+    private topics = new Map<string, Set<Subscriber>>();
     private pingTimer: NodeJS.Timer = null;
     private destructTimer: NodeJS.Timer = null;
 
@@ -313,7 +313,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
         }
     }
 
-    protected async reconnect() {
+    private async reconnect() {
         while (true) {
             if (this.closed)
                 break;
@@ -327,7 +327,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
         }
     }
 
-    protected prepareChannel() {
+    private prepareChannel() {
         this.socket.onerror = ev => {
             let err: Error;
 
@@ -419,7 +419,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
         return this;
     }
 
-    protected parseResponse(msg: any) {
+    private parseResponse(msg: any) {
         let res: Response = null;
 
         try {
@@ -433,7 +433,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
         return res;
     }
 
-    protected createRemoteInstance(mod: ModuleProxyType<any>) {
+    private createRemoteInstance(mod: ModuleProxyType<any>) {
         // Generate a proxified singleton instance to the module, so that it can
         // be used for remote requests. the remote instance should only return
         // methods.
@@ -488,7 +488,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
         });
     }
 
-    protected createFunction(mod: ModuleProxy, method: string) {
+    private createFunction(mod: ModuleProxy, method: string) {
         let self = this;
         return function (...args: any[]) {
             if (mod.path) {
@@ -525,15 +525,15 @@ export class RpcClient extends RpcChannel implements ClientOptions {
 
 class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
     readonly taskId: number = this.client.taskId.next().value;
-    protected state: "pending" | "closed" = "pending";
-    protected result: any;
+    private state: "pending" | "closed" = "pending";
+    private result: any;
 
     /**
      * Generators calls will be queued in a sequence so that when the server
      * yield a value (which is sequential), the client can process them
      * properly. For regular calls, the queue's size is fixed to 1.
      */
-    protected queue: Array<{
+    private queue: Array<{
         event: ChannelEvents,
         data?: any,
         resolve: Function,
@@ -541,9 +541,9 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
     }> = [];
 
     constructor(
-        protected client: RpcClient,
-        protected modName: string,
-        protected method: string,
+        private client: RpcClient,
+        private modName: string,
+        private method: string,
         ...args: any[]
     ) {
         // Initiate the task immediately when the remote method is called, this
@@ -581,7 +581,7 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
         }).then(resolver, rejecter);
     }
 
-    protected close() {
+    private close() {
         this.state = "closed";
 
         // Stop all pending tasks.
@@ -608,13 +608,13 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
         this.queue = [];
     }
 
-    protected captureStackTrack() {
+    private captureStackTrack() {
         let call = {};
         Error.captureStackTrace(call);
         return call as { readonly stack: string; };
     }
 
-    protected resolveStackTrace(
+    private resolveStackTrace(
         err: Error | string,
         call: { readonly stack: string; }
     ) {
@@ -633,7 +633,7 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
         }
     }
 
-    protected humanizeDuration(duration: number): string {
+    private humanizeDuration(duration: number): string {
         let num: number;
         let unit: string;
 
@@ -654,7 +654,7 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
         return num + " " + unit;
     }
 
-    protected creatTask(call: { readonly stack: string; }) {
+    private creatTask(call: { readonly stack: string; }) {
         return {
             resolve: (data: any) => {
                 if (this.state === "pending") {
@@ -676,7 +676,7 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
         };
     }
 
-    protected createTimeout(call: { readonly stack: string; }) {
+    private createTimeout(call: { readonly stack: string; }) {
         return setTimeout(() => {
             if (this.queue.length > 0) {
                 let task = this.queue.shift();
@@ -692,7 +692,7 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
         }, this.client.timeout);
     }
 
-    protected prepareTask(event: ChannelEvents, args?: any[]): Promise<any> {
+    private prepareTask(event: ChannelEvents, args?: any[]): Promise<any> {
         let call = this.captureStackTrack();
 
         if (!this.client.tasks.has(this.taskId)) {
@@ -730,7 +730,7 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
         });
     }
 
-    protected async invokeTask(event: ChannelEvents, ...args: any[]): Promise<any> {
+    private async invokeTask(event: ChannelEvents, ...args: any[]): Promise<any> {
         if (this.state === "closed") {
             switch (event) {
                 case ChannelEvents.INVOKE:
