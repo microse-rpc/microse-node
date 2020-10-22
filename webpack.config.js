@@ -6,15 +6,12 @@ module.exports = {
     externals: {
         url: "url",
         path: "path",
-        ws: "WebSocket",
-        fron: "FRON",
-        bson: "BSON",
-        "bson-ext": "BsonExt"
+        ws: "WebSocket"
     },
     output: {
         path: __dirname + "/client-bundle",
         filename: "index.js",
-        library: "alar",
+        library: "microse",
         libraryTarget: "umd",
         globalObject: "this",
     },

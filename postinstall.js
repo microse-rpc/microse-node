@@ -7,7 +7,7 @@ if (!fs.existsSync(__dirname + "/dist")) {
     } catch (e) {
         console.warn(
             "WARN: Cannot compile the source code, make sure you have " +
-            "typescript installed and run 'npm rebuild alar' manually"
+            "typescript installed and run 'npm rebuild microse' manually"
         );
     }
 }
