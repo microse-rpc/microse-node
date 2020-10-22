@@ -104,8 +104,8 @@ console.log(user.getName()); // Mr. Handsome
 
 If a module doesn't have a default class exported, the module it it self will be
 used instead, moreover, if the module exports an default object, it will be used
-as a  prototype, when creating a new instance of the module, a deep clone will
-be created, if an argument is passed, it will be merged into the new object.
+as a  prototype when creating a new instance of the module, and a deep clone
+will be created, if an argument is passed, it will be merged into the new object.
 
 ```typescript
 // src/config.ts

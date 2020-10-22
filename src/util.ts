@@ -103,8 +103,6 @@ export function createInstance(mod: ModuleProxy<any>, forRemote = false) {
         } else {
             return new mod();
         }
-    } else if (typeof exports.default === "object") {
-        ins = exports.default;
     } else {
         ins = exports;
     }

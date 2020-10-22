@@ -66,13 +66,16 @@ describe("Local Instance", () => {
         assert(test instanceof app.services.detail);
     });
 
-    it("should access to a prototype module", () => {
+    it("should access to a non-class module", async () => {
         assert.strictEqual(app.config.name, "app.config");
         assert.strictEqual(app.config.path, path.normalize(__dirname + "/app/config"));
         assert.deepStrictEqual(app.config.proto, config);
+
+        let value = await app.config.get("hostname");
+        assert.strictEqual(value, config.hostname);
     });
 
-    it("should create an instance from a prototype module", () => {
+    it("should create an instance from a non-class module", () => {
         let ins = new app.config();
         assert.deepStrictEqual(ins, config);
 
