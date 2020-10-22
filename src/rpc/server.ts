@@ -117,7 +117,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
                 }
 
                 // Forbid HTTP requests or any WebSocket connection that is not
-                // using the set pathname.
+                // using the right pathname.
                 httpServer.on("request", (_, res: http.ServerResponse) => {
                     res.writeHead(406);
                     res.end();
@@ -136,43 +136,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
                 Object.assign(this, { httpServer });
             }
 
-            // Verify authentication on the 'upgrade' stage.
-            httpServer.on("upgrade", (
-                req: http.IncomingMessage,
-                socket: net.Socket,
-                head: Buffer
-            ) => {
-                if (socket.destroyed)
-                    return;
-
-                let {
-                    pathname: _pathname,
-                    searchParams
-                } = new URL(req.url, "ws://localhost");
-
-                if (!isUnixSocket && _pathname !== pathname)
-                    return;
-
-                let secret = searchParams.get("secret")
-                    || String(req.headers["secret"] || "");
-                let clientId = searchParams.get("id")
-                    || String(req.headers["id"] || "");
-
-                if (!clientId || (this.secret && secret !== this.secret)) {
-                    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-                    socket.destroy();
-                } else {
-                    wsServer.handleUpgrade(req, socket, head, client => {
-                        this.clients.set(client, clientId);
-                        this.tasks.set(client, new Map());
-                        wsServer.emit('connection', client, req);
-
-                        // Notify the client that the connection is ready.
-                        this.dispatch(client, ChannelEvents.CONNECT, this.id);
-                    });
-                }
-            });
-
+            httpServer.on("upgrade", this.handleHandshake.bind(this));
             wsServer = this.wsServer = new WebSocket.Server({
                 noServer: true,
                 perMessageDeflate: true
@@ -188,6 +152,42 @@ export class RpcServer extends RpcChannel implements ServerOptions {
                 }
             }
         });
+    }
+
+    private handleHandshake(
+        req: http.IncomingMessage,
+        socket: net.Socket,
+        head: Buffer
+    ) {
+        // verify authentication
+
+        if (socket.destroyed)
+            return;
+
+        let {
+            pathname: _pathname,
+            searchParams
+        } = new URL(req.url, "ws://localhost");
+
+        if (this.protocol !== "ws+unix:" && _pathname !== this.pathname)
+            return;
+
+        let clientId = searchParams.get("id");
+        let secret = searchParams.get("secret");
+
+        if (!clientId || (this.secret && secret !== this.secret)) {
+            socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+            socket.destroy();
+        } else {
+            this.wsServer.handleUpgrade(req, socket, head, client => {
+                this.clients.set(client, clientId);
+                this.tasks.set(client, new Map());
+                this.wsServer.emit('connection', client, req);
+
+                // Notify the client that the connection is ready.
+                this.dispatch(client, ChannelEvents.CONNECT, this.id);
+            });
+        }
     }
 
     async close(): Promise<void> {
