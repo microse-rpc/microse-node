@@ -275,7 +275,9 @@ export class RpcServer extends RpcChannel implements ServerOptions {
 
             let _data: [ChannelEvents, number | string, any?];
 
-            if (event === ChannelEvents.PONG) {
+            if (event === ChannelEvents.CONNECT) {
+                _data = [event, String(taskId)];
+            } else if (event === ChannelEvents.PONG) {
                 _data = [event, Number(taskId)];
             } else if (this.codec === "CLONE") {
                 // Use structured clone algorithm to process data.
@@ -392,7 +394,10 @@ export class RpcServer extends RpcChannel implements ServerOptions {
                             await task.throw(input);
                         }
 
-                        data.done && tasks.delete(<number>taskId);
+                        if (data.done) {
+                            event = ChannelEvents.RETURN;
+                            tasks.delete(<number>taskId);
+                        }
                     } catch (err) {
                         event = ChannelEvents.THROW;
                         data = err;

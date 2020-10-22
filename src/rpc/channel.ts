@@ -111,7 +111,7 @@ export abstract class RpcChannel implements ChannelOptions {
 
     /** Gets the data source name according to the configuration. */
     get dsn() {
-        if (this.pathname) {
+        if (this.protocol === "ws+unix:") {
             return "ipc:" + this.pathname;
         } else {
             return "rpc://" + this.hostname + ":" + this.port;
