@@ -158,8 +158,8 @@ export class RpcClient extends RpcChannel implements ClientOptions {
                 let res = this.parseResponse(msg);
 
                 if (!Array.isArray(res) || res[0] !== ChannelEvents.CONNECT) {
-                    this.state = "closed";
-                    socket.close(1002);
+                    // Protocol error, shall close the channel.
+                    this.close();
                     socket.onerror.call(socket, null);
                 } else {
                     this.state = "connected";
