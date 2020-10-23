@@ -286,8 +286,12 @@ export class RpcServer extends RpcChannel implements ServerOptions {
                 _data = [event, taskId, data];
             }
 
-            msg = JSON.stringify(_data);
-            socket.send(msg);
+            try {
+                msg = JSON.stringify(_data);
+                socket.send(msg);
+            } catch (err) {
+                this.dispatch(socket, ChannelEvents.THROW, taskId, err);
+            }
         }
     }
 
