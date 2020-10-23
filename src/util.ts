@@ -89,7 +89,7 @@ export function formatObjectStructure(obj: object) {
 }
 
 export function throwUnavailableError(name: string) {
-    throw new ReferenceError(`Service ${name} is not available`);
+    throw new ReferenceError(`${name} is not available`);
 }
 
 export function createInstance(mod: ModuleProxy<any>, forRemote = false) {
