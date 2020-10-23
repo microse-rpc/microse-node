@@ -51,13 +51,12 @@ export class RpcServer extends RpcChannel implements ServerOptions {
         this.useExternalHttpServer = !!this.httpServer;
     }
 
-    private finishListen() {
+    private updateAddress() {
         let dsn = this.dsn;
         let addr = this.httpServer.address();
 
         if (typeof addr === "string") {
             define(this, "pathname", addr, true);
-            define(this, "id", this.dsn, true);
         } else {
             let { port, address } = addr;
             define(this, "port", port, true);
@@ -93,7 +92,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
                 wsServer.on("connection", this.handleConnection.bind(this));
                 wsServer.on("error", this.handleError);
 
-                this.finishListen();
+                this.updateAddress();
                 resolve();
             };
 
