@@ -95,16 +95,8 @@ After the server finished a request, it shall send a message in the following
 signature as response:
 
 ```
-[RETURN, requestId, data] // for example [3, 1, true]
+[RETURN, requestId, result?] // for example [3, 1, true]
 ```
-
-##### `null` or `undefined`
-
-In JavaScript, if a function doesn't return anything or the `return` statement
-doesn't follow a value, it, by default, returns `undefined`, however, JSON will
-alway serialize the `undefined` into `null`, so for universal compatibility,
-if a remote function doesn't return a value, the `data` will always be `null`
-(or other equivalent language terms).
 
 #### As Generator Call (ignore this if the program doesn't support generator functions)
 

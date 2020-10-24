@@ -278,11 +278,17 @@ export class RpcServer extends RpcChannel implements ServerOptions {
                 _data = [event, String(taskId)];
             } else if (event === ChannelEvents.PONG) {
                 _data = [event, Number(taskId)];
-            } else if (this.codec === "CLONE") {
-                // Use structured clone algorithm to process data.
-                _data = [event, taskId, compose(data)];
             } else {
-                _data = [event, taskId, data];
+                _data = [event, taskId];
+
+                if (data !== undefined || event === ChannelEvents.PUBLISH) {
+                    if (this.codec === "CLONE") {
+                        // Use structured clone algorithm to process data.
+                        _data.push(compose(data));
+                    } else {
+                        _data.push(data);
+                    }
+                }
             }
 
             try {

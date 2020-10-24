@@ -355,13 +355,15 @@ export class RpcClient extends RpcChannel implements ClientOptions {
             if (!Array.isArray(res) || typeof res[0] !== "number")
                 return;
 
-            let [event, taskId, data] = res;
+            let [event, taskId, data = void 0] = res;
             let task: Task;
 
-            if (event === ChannelEvents.THROW && typeof data === "object") {
-                data = utils.object2error(data);
-            } else if (this.codec === "CLONE") {
-                data = decompose(data);
+            if (typeof data === "object" && data !== null) {
+                if (event === ChannelEvents.THROW) {
+                    data = utils.object2error(data);
+                } else if (this.codec === "CLONE") {
+                    data = decompose(data);
+                }
             }
 
             switch (event) {
@@ -750,7 +752,7 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
                 let res = await this.prepareTask(event, args);
 
                 if (event !== ChannelEvents.INVOKE) {
-                    ("value" in res) || (res.value = null);
+                    ("value" in res) || (res.value = void 0);
 
                     if (res.done) {
                         this.state = "closed";
