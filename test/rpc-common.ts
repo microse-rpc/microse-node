@@ -146,7 +146,7 @@ export default function (App: ModuleProxyApp) {
         let result1 = await generator.next(<any>"Google");
         let returns = await generator.next(<any>"break");
 
-        assert.deepStrictEqual(result, { value: undefined, done: false });
+        assert.deepStrictEqual(result, { value: null, done: false });
         assert.deepStrictEqual(result1, { value: "Google", done: false });
         assert.deepStrictEqual(returns, { value: "12345", done: true });
 

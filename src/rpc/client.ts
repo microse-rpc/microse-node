@@ -750,7 +750,7 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
                 let res = await this.prepareTask(event, args);
 
                 if (event !== ChannelEvents.INVOKE) {
-                    ("value" in res) || (res.value = void 0);
+                    ("value" in res) || (res.value = null);
 
                     if (res.done) {
                         this.state = "closed";

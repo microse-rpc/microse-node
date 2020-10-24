@@ -124,11 +124,14 @@ of a generator function.
 #### As Generator Response (ignore this if the program doesn't support generator functions)
 
 Similar to regular response, except the `data` will always be an object with
-`done` and `value` properties.
+`done` and an optional `value` properties.
 
 ```
-[RETURN, requestId, { done: true, value? }] // for example [3, 2, { done: true, value: "foo" }]
+[RETURN, requestId, { done: true, value?, key? }] // for example [3, 2, { done: true, value: "foo" }]
 ```
+
+`key` is used for PHP implementation to support `yield $key => $value`, but
+since this is the `RETURN` event, the key will alway be `null` ot not set.
 
 ### `THROW` event
 
@@ -192,8 +195,11 @@ function, the `value` will be sent by the server via the `YIELD` event in the
 following signature as response:
 
 ```
-[YIELD, requestId, { done: false, value }] // for example [5, 2, { done: false, value: "baz" }]
+[YIELD, requestId, { done: false, value, key? }] // for example [5, 2, { done: false, value: "baz" }]
 ```
+
+`key` is used for PHP implementation to support `yield $key => $value`, other
+languages that doesn't support this syntax should just ignore the `key`.
 
 ### `PUBLISH` event
 
