@@ -55,12 +55,8 @@ export class RpcServer extends RpcChannel implements ServerOptions {
         let dsn = this.dsn;
         let addr = this.httpServer.address();
 
-        if (typeof addr === "string") {
-            define(this, "pathname", addr, true);
-        } else {
-            let { port, address } = addr;
-            define(this, "port", port, true);
-            define(this, "hostname", address, true);
+        if (typeof addr === "object") {
+            define(this, "port", addr.port, true);
         }
 
         if (this.id === dsn) {

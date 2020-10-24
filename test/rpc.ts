@@ -27,6 +27,9 @@ describe("Remote Instance", () => {
 
         let client = await App.connect(sockPath);
 
+        assert.strictEqual(client.dsn, "ws+unix:" + sockPath);
+        assert.strictEqual(client.serverId, client.dsn);
+
         await client.register(app.services.detail);
         await app.services.detail.setName("Mr. Handsome");
 

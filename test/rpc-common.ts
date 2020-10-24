@@ -12,6 +12,9 @@ export default function (App: ModuleProxyApp) {
 
         let client = await App.connect(config);
 
+        assert.strictEqual(client.dsn, "ws://127.0.0.1:18888/");
+        assert.strictEqual(client.serverId, "ws://127.0.0.1:18888/");
+
         await client.register(app.services.detail);
         await app.services.detail.setName("Mr. Handsome");
 
@@ -35,8 +38,12 @@ export default function (App: ModuleProxyApp) {
     });
 
     it("should serve and connect an RPC service via a URL", async () => {
-        let serverProcess = await fork(__dirname + "/server/index.js", { USE_URL: "ws://localhost:18888/microse" });
-        let client = await App.connect("ws://localhost:18888/microse");
+        let url = "ws://localhost:18888/microse";
+        let serverProcess = await fork(__dirname + "/server/index.js", { USE_URL: url });
+        let client = await App.connect(url);
+
+        assert.strictEqual(client.dsn, url);
+        assert.strictEqual(client.serverId, url);
 
         await client.register(app.services.detail);
         await app.services.detail.setName("Mr. Handsome");
@@ -55,6 +62,9 @@ export default function (App: ModuleProxyApp) {
             hostname: "localhost",
             ca: [await fs.readFile(process.cwd() + "/test/cert.pem")]
         });
+
+        assert.strictEqual(client.dsn, "wss://localhost:18888/");
+        assert.strictEqual(client.serverId, client.dsn);
 
         await client.register(app.services.detail);
 
