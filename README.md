@@ -1,4 +1,4 @@
-# Microse
+# 🌹Microse
 
 Microse (stands for *Micro Remote Object Serving Engine*) is a light-weight
 engine that provides applications the ability to serve modules as RPC services,
