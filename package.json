@@ -14,20 +14,22 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hyurl/microse.git"
+    "url": "git+https://github.com/microse-rpc/microse-node.git"
   },
   "keywords": [
+    "rpc",
+    "module",
+    "proxy",
     "micro-service",
     "auto-load",
-    "hot-reload",
-    "rpc"
+    "hot-reload"
   ],
   "author": "A-yon Lee <i@hyurl.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/hyurl/microse/issues"
+    "url": "https://github.com/microse-rpc/microse-node/issues"
   },
-  "homepage": "https://github.com/hyurl/microse#readme",
+  "homepage": "https://github.com/microse-rpc/microse-node#readme",
   "dependencies": {
     "@hyurl/structured-clone": "^0.2.8",
     "@hyurl/utils": "^0.2.8",
