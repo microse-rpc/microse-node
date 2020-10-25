@@ -23,27 +23,29 @@ type ModuleProxy<T> = T & {
 }
 ```
 
+`ModuleProxy` is implemented as an abstract class in microse, and is used to
+create proxy when accessing a module, users shall only use the type instead.
+
 ## ModuleProxyApp
 
 ```typescript
-class ModuleProxyApp {
+class ModuleProxyApp extends ModuleProxy {
     constructor(name: string, path: string, loader?: ModuleLoader);
 }
 ```
 
 This class is used to create a root module proxy, and the root module should be
-declared as a namespace under the global scope, in TypeScript, the following
-steps must be walked through for microse to work in a project.
+declared as a namespace under the global scope.
 
 ```typescript
 import { ModuleProxyApp } from "microse";
 
 // This statement creates a root module and assign it to the global scope in 
-// NodeJS.
-export const App = global["app"] = new ModuleProxyApp("app", __dirname);
+// Node.js.
+const App = global["app"] = new ModuleProxyApp("app", __dirname);
 
 // This declaration merging creates a namespace app under the global scope in
-// TypeScript, so you can use it everywhere for type hint and type check.
+// TypeScript, so you can use it everywhere for IDE intellisense.
 declare global {
     namespace app { }
 }
@@ -55,7 +57,8 @@ This class has the following extra properties and methods:
     Serves an RPC server according to the given options. If `options` is a
     string, it could be a URL or Unix socket filename.
 - `connect(options: string | ClientOptions): Promise<RpcClient>`
-    Connects to an RPC server according to the given options.
+    Connects to an RPC server according to the given options.  If `options` is a
+    string, it could be a URL or Unix socket filename.
 - `resolve(path: string): string` Resolves the given path to a module name.
 - `watch(listener?: (event: "change" | "unlink", filename: string)): FSWatcher` 
     Watches file change and reload the corresponding module.
@@ -107,9 +110,7 @@ json.setLoader({
     cache: {},
     extension: ".json",
     load(filename) {
-        return this.cache[filename] || (
-            this.cache[filename] = JSON.parse(fs.readFileSync(filename, "utf8"))
-        );
+        return this.cache[filename] ||= JSON.parse(fs.readFileSync(filename, "utf8"));
     },
     unload(filename) {
         delete this.cache[filename];
@@ -236,7 +237,7 @@ class RpcClient extends RpcChannel implements ClientOptions { }
 ```
 
 The client implementation of the RPC channel, which has the following extra
-methods:
+properties and methods:
 
 - `connecting: boolean` Whether the channel is in connecting state.
 - `connected: boolean` Whether the channel is connected.
@@ -267,7 +268,7 @@ interface ClientOptions extends ChannelOptions {
 ```
 
 By default, the `serverId` is automatically set according to the `dsn` of the
-server, and updated after finishing the connect. However, if an ID is set when
+server, and updated after established the connect. However, if an ID is set when
 serving the RPC server, it would be better to set `serverId` to that ID as well.
 
 By default `timeout` is set `5000`ms, it is used to force a timeout error when
@@ -286,9 +287,3 @@ down and will destroy and retry the connection.
 By default, `rejectUnauthorized` is set `true`, however, if the server uses a
 self-signed certification and the client doesn't provided a valid `ca` option,
 you can set this option to `false` to allow connecting.
-
-## Pub-Sub Model between the server and clients
-
-When the server publishes a message, all clients subscribe to the topic
-will receive the data and invoke their handlers, this mechanism is often used
-for the server to broadcast data to its clients.

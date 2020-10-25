@@ -4,8 +4,15 @@ Microse (stands for *Micro Remote Object Serving Engine*) is a light-weight
 engine that provides applications the ability to serve modules as RPC services,
 whether in another process or in another machine.
 
-For API reference, please check the [API documentation](./docs/api.md),
-or the [Protocol Reference](./docs/protocol.md).
+This is the Node.js version of microse implementation. For API reference, please
+check the [API documentation](./docs/api.md), or the
+[Protocol Reference](./docs/protocol.md).
+
+Other implementations:
+
+- [microse-py](https://github.com/microse-rpc/microse-py) Python implementation
+- [microse-swoole](https://github.com/microse-rpc/microse-swoole) PHP implementation
+    based on swoole
 
 ## Install
 
@@ -16,7 +23,7 @@ npm i microse
 ## Peel The Onion
 
 In order to use microse, one must create a root `ModuleProxyApp` instance and
-assign it to the global scope, so other files can directly use it as a root
+augment it to the global scope, so other files can directly use it as a root
 namespace without importing the module.
 
 ### Example
@@ -35,7 +42,7 @@ export const App = global["app"] = new ModuleProxyApp("app", __dirname);
 ```
 
 In other files, just define and export a default class, and merge the type to 
-the namespace `app`, so that another file can access it directly via namespace.
+the `app` namespace, so that another file can access it directly without import.
 
 (NOTE: Microse offers first priority of the `default` export, if a module
 doesn't have a default export, microse will try to load all exports instead.)
@@ -134,7 +141,7 @@ const config = app.config.exports;
 print(`${config.hostname}:${config.port}`) // 127.0.0.1:80
 
 // Functions can be called directly:
-console.log(await app.config.get("someKey"))
+let value = await app.config.get("someKey");
 ```
 
 ## Remote Service
@@ -180,7 +187,7 @@ export default class UserService {
 ```
 
 ```typescript
-// src/remote-service.ts
+// src/server.ts
 import { App } from "./app";
 
 (async () => {
@@ -192,13 +199,13 @@ import { App } from "./app";
 })();
 ```
 
-Just try `ts-node --files src/remote-service` (or `node dist/remote-service`), 
+Just try `ts-node --files src/server` (or `node dist/server`), 
 and the service will be started immediately.
 
-And in **index.ts**, connect to the service before using remote functions:
+And in client-side code, connect to the service before using remote functions:
 
 ```typescript
-// index.ts
+// client.ts
 import { App } from "./app";
 
 (async () => {
@@ -355,7 +362,7 @@ const app = global.app = new ModuleProxyApp("app"); // no path needed
 })();
 ```
 
-And when declaring modules, just pass an interface to `ModuleProxy`:
+And declare the service as an interface:
 
 ```ts
 import { ModuleProxy } from "microse/client";
@@ -368,13 +375,10 @@ declare global {
     }
 }
 
-interface UserService { // or use `declare class`
+interface UserService {
     getFullName(firstName: number): Promise<string>;
 }
 ```
-
-You can visit the python version of microse from
-[hyurl/microse-py](https://github.com/hyurl/microse-py).
 
 ## Auto-loading and Hot-reloading
 
@@ -409,4 +413,9 @@ Once a remote service enters hot-reloading stage, it will be marked as
 unavailable temporarily, all remote calls will be automatically avoided from
 redirecting traffic to that server until the module finishes reloading.
 
-For more details, please check the [API documentation](./docs/api.md).
+## Process Interop
+
+This implementation supports interop in the same process, that means, if it
+detects that the target remote instance is served in the current process,
+the function will always be called locally and prevent unnecessary network
+traffic.
