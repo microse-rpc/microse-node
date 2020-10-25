@@ -26,7 +26,7 @@ export interface ChannelOptions {
     cert?: string | Buffer | Buffer[];
     pfx?: string | Buffer | Buffer[];
     ca?: string | Buffer | Buffer[];
-    passphase?: string;
+    passphrase?: string;
 }
 
 export type Request = [ChannelEvents, number, string?, string?, any[]?];
@@ -45,7 +45,7 @@ export abstract class RpcChannel implements ChannelOptions {
     readonly cert?: string | Buffer | Buffer[];
     readonly pfx?: string | Buffer | Buffer[];
     readonly ca?: string | Buffer | Buffer[];
-    readonly passphase?: string;
+    readonly passphrase?: string;
     protected handleError: (err: Error) => void = err => console.error(err);
 
     constructor(url: string);

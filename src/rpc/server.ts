@@ -99,7 +99,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
                         cert: this.cert,
                         pfx: this.pfx,
                         ca: this.ca,
-                        passphrase: this.passphase,
+                        passphrase: this.passphrase,
                     }).listen(port, hostname, callback);
                 } else {
                     httpServer = http.createServer();

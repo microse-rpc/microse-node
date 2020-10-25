@@ -31,7 +31,7 @@ define(global, "app", App);
             hostname: "localhost",
             key: await fs.readFile(process.cwd() + "/test/key.pem", "utf8"),
             cert: await fs.readFile(process.cwd() + "/test/cert.pem", "utf8"),
-            passphase: "alartest"
+            passphrase: "alartest"
         });
     } else if (process.env["USE_HTTP"]) {
         let httpServer = http.createServer();

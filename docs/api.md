@@ -172,7 +172,7 @@ interface ChannelOptions {
     cert?: string | Buffer | Buffer[];
     pfx?: string | Buffer | Buffer[];
     ca?: string | Buffer | Buffer[];
-    passphase?: string;
+    passphrase?: string;
 }
 ```
 
@@ -193,6 +193,14 @@ value is `JSON`. The `CLONE` codec is based on `JSON`, however with a
 structured clone of the original data, that means it supports more types
 than JSON does, like Date, RegExp, TypedArray, etc. For more information, see
 [@hyurl/structured-clone](https://github.com/hyurl/structured-clone).
+
+If `protocol` is `wss:`, `key` and `cert` (or `pfx`) must be provided in order
+to ship a secure server, and if the key is encrypted, the `passphrase` should
+be provided as well.
+
+If the server uses a self-signed certificate, the client should provide the `ca`
+option as an array containing the certificate in order to establish the secure
+connection.
 
 ## RpcServer
 
