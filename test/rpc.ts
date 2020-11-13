@@ -166,7 +166,7 @@ describe("Remote Instance", () => {
             this.setName("Mr. World");
         };
 
-        let server = await App.serve(config, false);
+        let server = await App.serve(config);
 
         await server.register(app.services.detail);
 

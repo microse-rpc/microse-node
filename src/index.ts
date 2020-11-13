@@ -48,13 +48,13 @@ export class ModuleProxyApp extends ModuleProxyBase {
     /**
      * Serves an RPC server according to the given URL or Unix socket filename.
      */
-    serve(url: string, immediate?: boolean): Promise<RpcServer>;
+    serve(url: string): Promise<RpcServer>;
     /** Serves an RPC server according to the given options. */
-    serve(options: ServerOptions, immediate?: boolean): Promise<RpcServer>;
-    async serve(options: string | ServerOptions, immediate = true) {
+    serve(options: ServerOptions): Promise<RpcServer>;
+    async serve(options: string | ServerOptions) {
         this[server] = new RpcServer(<any>options);
         this[server]["proxyRoot"] = this;
-        immediate && (await this[server].open());
+        await this[server].open();
         return this[server];
     }
 
@@ -62,12 +62,12 @@ export class ModuleProxyApp extends ModuleProxyBase {
      * Connects to an RPC server according to the given URL or Unix socket
      * filename.
      */
-    connect(url: string, immediate?: boolean): Promise<RpcClient>;
+    connect(url: string): Promise<RpcClient>;
     /** Connects to an RPC server according to the given options. */
-    connect(options: ClientOptions, immediate?: boolean): Promise<RpcClient>;
-    async connect(options: string | ClientOptions, immediate = true) {
+    connect(options: ClientOptions): Promise<RpcClient>;
+    async connect(options: string | ClientOptions) {
         let client = new RpcClient(<any>options);
-        immediate && (await client.open());
+        await client.open();
         return client;
     }
 
