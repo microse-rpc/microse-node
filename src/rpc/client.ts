@@ -180,7 +180,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
     }
 
     async close(): Promise<void> {
-        await new Promise(resolve => {
+        await new Promise<void>(resolve => {
             this.state = "closed";
             this.pause();
 
