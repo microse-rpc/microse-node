@@ -386,7 +386,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
             let task = ins[method].apply(ins, args);
 
             if (task && isIteratorLike(task)) {
-                tasks.set(<number>taskId, task);
+                tasks.set(<number>taskId, task as any);
                 event = ChannelEvents.INVOKE;
             } else {
                 data = await task;

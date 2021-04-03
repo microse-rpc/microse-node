@@ -36,7 +36,7 @@ define(global, "app", App);
     } else if (process.env["USE_HTTP"]) {
         let httpServer = http.createServer();
         server = await App.serve({ httpServer });
-        await new Promise(resolve => httpServer.listen(config.port, config.hostname, resolve));
+        await new Promise<void>(resolve => httpServer.listen(config.port, config.hostname, resolve));
     } else {
         server = await App.serve(config);
     }
