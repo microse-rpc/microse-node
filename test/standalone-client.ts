@@ -46,5 +46,5 @@ describe("Standalone Client", () => {
             "app.services.detail is not a constructor");
     });
 
-    commonTest(App);
+    commonTest(App as any);
 });

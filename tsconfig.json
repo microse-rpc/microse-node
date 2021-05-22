@@ -5,6 +5,7 @@
         "preserveConstEnums": true,
         "rootDir": "src/",
         "outDir": "dist/",
+        "declaration": true,
         "experimentalDecorators": true,
         "newLine": "LF",
         "noUnusedParameters": true,
