@@ -383,7 +383,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
                 throwUnavailableError(modName);
             }
 
-            let task = ins[method].apply(ins, args);
+            let task = ins[method](...args);
 
             if (task && isIteratorLike(task)) {
                 tasks.set(<number>taskId, task as any);
@@ -393,6 +393,12 @@ export class RpcServer extends RpcChannel implements ServerOptions {
                 event = ChannelEvents.RETURN;
             }
         } catch (err) {
+            if (err instanceof Error &&
+                err.message === "ins[method] is not a function"
+            ) {
+                err.message = `${modName}.${method} is not a function`;
+            }
+
             event = ChannelEvents.THROW;
             data = err;
         }
