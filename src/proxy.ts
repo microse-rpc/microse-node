@@ -52,25 +52,26 @@ export function createModuleProxy(
 
             if (!isEmpty(singletons)) {
                 let route = args[0] ?? "";
+                let ins: any;
 
                 // If the route matches any key of the remoteSingletons,
                 // return the corresponding singleton as wanted.
                 if (typeof route === "string" && singletons[route]) {
-                    return singletons[route];
-                }
+                    ins = singletons[route];
+                } else {
+                    let _singletons = values(singletons)
+                        .filter(s => s[readyState]);
+                    let count = _singletons.length;
 
-                let _singletons = values(singletons).filter(s => s[readyState]);
-                let count = _singletons.length;
-                let ins: any;
-
-                if (count === 1) {
-                    ins = _singletons[0];
-                } else if (count >= 2) {
-                    // If the module is connected to more than one remote
-                    // instances, redirect traffic to one of them automatically
-                    // according to the route.
-                    let id = evalRouteId(route);
-                    ins = _singletons[id % count];
+                    if (count === 1) {
+                        ins = _singletons[0];
+                    } else if (count >= 2) {
+                        // If the module is connected to more than one remote
+                        // instances, redirect traffic to one of them
+                        // automatically according to the route.
+                        let id = evalRouteId(route);
+                        ins = _singletons[id % count];
+                    }
                 }
 
                 if (ins) {
