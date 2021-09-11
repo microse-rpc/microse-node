@@ -1,11 +1,11 @@
 {
   "name": "microse",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "Micro Remote Object Serving Engine",
   "main": "dist/index.js",
   "scripts": {
     "prepublishOnly": "npx tsc && npx webpack",
-    "pretest": "node test/pretest.js",
+    "pretest": "npx tsc && node test/pretest.js",
     "test": "npx mocha test/.build/test",
     "posttest": "node test/posttest.js",
     "postinstall": "node postinstall.js"

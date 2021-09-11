@@ -194,7 +194,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
 
         for (let name in this.registry) {
             let mod = this.registry[name];
-            let singletons = mod[root]["remoteSingletons"][name];
+            let singletons = mod[root]?.["remoteSingletons"]?.[name];
 
             if (singletons?.[this.serverId]) {
                 delete singletons[this.serverId];
@@ -211,6 +211,14 @@ export class RpcClient extends RpcChannel implements ClientOptions {
             singletons[this.serverId] = this.createRemoteInstance(mod);
             singletons[this.serverId][readyState] = this.connected ? 1 : 0;
             this.registry[mod.name] = mod;
+        }
+    }
+
+    async deregister<T>(mod: ModuleProxyType<T>) {
+        let singletons = mod[root]?.["remoteSingletons"]?.[mod.name];
+
+        if (singletons?.[this.serverId]) {
+            delete singletons[this.serverId];
         }
     }
 

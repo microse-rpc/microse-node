@@ -228,6 +228,11 @@ export class RpcServer extends RpcChannel implements ServerOptions {
         await tryLifeCycleFunction(<any>mod, "init", this.handleError);
     }
 
+    async deregister<T>(mod: ModuleProxy<T>) {
+        delete this.register[mod.name];
+        await tryLifeCycleFunction(<any>mod, "destroy", this.handleError);
+    }
+
     /**
      * Publishes data to the corresponding topic, if `clients` are provided, the
      * topic will only be published to them.

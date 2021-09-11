@@ -153,6 +153,8 @@ The following properties and methods work in both implementations:
 - `close(): Promise<void>` Closes the channel.
 - `register<T>(mod: ModuleProxy<T>): Promise<void>` Registers a module to the
     channel.
+- `deregister<T>(mod: ModuleProxy<T>): Promise<void>` De-registers a module from
+    the channel.
 - `onError(handler: (err: Error) => void): void` Binds an error handler invoked 
     whenever an error occurred in asynchronous operations which can't be caught
     during run-time.

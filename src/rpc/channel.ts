@@ -136,4 +136,7 @@ export abstract class RpcChannel implements ChannelOptions {
 
     /** Registers a module proxy to the channel. */
     abstract register<T extends object>(mod: ModuleProxy<T>): Promise<void>;
+
+    /** De-registers a module proxy from the channel */
+    abstract deregister<T extends object>(mod: ModuleProxy<T>): Promise<void>;
 }
