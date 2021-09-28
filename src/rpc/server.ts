@@ -192,11 +192,12 @@ export class RpcServer extends RpcChannel implements ServerOptions {
                     // wsServer.close() will not emit 'close' event on the
                     // clients, so we need to close suspended tasks and empty
                     // maps here.
-                    this.tasks.forEach(
-                        tasks => tasks.forEach(task => task.return())
-                    );
-                    this.tasks = new Map();
-                    this.clients = new Map();
+                    this.tasks.forEach(tasks => {
+                        tasks.forEach(task => task.return());
+                        tasks.clear();
+                    });
+                    this.tasks.clear();
+                    this.clients.clear();
 
                     if (!this.useExternalHttpServer) {
                         this.httpServer.close(() => {
