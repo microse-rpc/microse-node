@@ -116,7 +116,7 @@ export class ModuleProxyApp extends ModuleProxyBase {
 
                 try {
                     if (this[server] &&
-                        this[server]["enableLifeCycle"] &&
+                        !this[server]["disableLifeCycle"] &&
                         this[server]["registry"][name]
                     ) {
                         let mod = this[server]["registry"][name];
