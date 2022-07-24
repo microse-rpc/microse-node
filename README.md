@@ -413,9 +413,9 @@ Once a remote service enters hot-reloading stage, it will be marked as
 unavailable temporarily, all remote calls will be automatically avoided from
 redirecting traffic to that server until the module finishes reloading.
 
-## Process Interop
+## Inner-process Fast-forwarding
 
-This implementation supports interop in the same process, that means, if it
-detects that the target remote instance is served in the current process,
+This implementation supports fast-forwarding in the same process, that means, if
+it detects that the target remote instance is served in the current process,
 the function will always be called locally and prevent unnecessary network
 traffic.
