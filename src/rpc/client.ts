@@ -455,7 +455,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
                     return ins[prop];
                 }
 
-                if (!mod.path) {
+                if (!mod.path || ins[prop] === undefined) {
                     if (!isOwnKey(ins, prop)) {
                         let fn = this.createFunction(<any>mod, <string>prop);
 

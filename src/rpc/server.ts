@@ -230,7 +230,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
     }
 
     async deregister<T>(mod: ModuleProxy<T>) {
-        delete this.register[mod.name];
+        delete this.registry[mod.name];
         await tryLifeCycleFunction(<any>mod, "destroy", this.handleError);
     }
 
