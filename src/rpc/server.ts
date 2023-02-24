@@ -1,6 +1,6 @@
 import * as net from "net";
 import * as path from "path";
-import * as fs from "fs-extra";
+import * as fs from "fs";
 import * as http from "http";
 import * as https from "https";
 import * as WebSocket from "ws";
@@ -64,19 +64,35 @@ export class RpcServer extends RpcChannel implements ServerOptions {
         }
     }
 
+    private async ensureDir(dirname: string) {
+        try {
+            await fs.promises.mkdir(dirname, { recursive: true });
+        } catch (err) {
+            if (err["code"] !== "EEXIST")
+                throw err;
+        }
+    }
+
+    private async unlinkIfExists(filename: string) {
+        try {
+            await fs.promises.unlink(filename);
+        } catch (err) {
+            if (err["code"] !== "ENOENT")
+                throw err;
+        }
+    }
+
     async open(): Promise<void> {
         let { protocol, pathname } = this;
         let isUnixSocket = protocol === "ws+unix:";
 
         if (isUnixSocket && pathname) {
-            await fs.ensureDir(path.dirname(pathname));
+            await this.ensureDir(path.dirname(pathname));
 
             // If the path exists, it's more likely caused by a previous 
             // server process closing unexpected, just remove it before ship
             // the new server.
-            if (await fs.pathExists(pathname)) {
-                await fs.unlink(pathname);
-            }
+            await this.unlinkIfExists(pathname);
         }
 
         return new Promise((resolve, reject) => {

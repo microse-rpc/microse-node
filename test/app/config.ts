@@ -12,7 +12,7 @@ declare global {
 }
 
 export default {
-    hostname: "127.0.0.1",
+    hostname: "localhost",
     port: 18888,
     timeout: 1000
 };

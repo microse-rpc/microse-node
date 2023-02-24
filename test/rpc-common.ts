@@ -12,8 +12,8 @@ export default function (App: ModuleProxyApp) {
 
         let client = await App.connect(config);
 
-        assert.strictEqual(client.dsn, "ws://127.0.0.1:18888/");
-        assert.strictEqual(client.serverId, "ws://127.0.0.1:18888/");
+        assert.strictEqual(client.dsn, "ws://localhost:18888/");
+        assert.strictEqual(client.serverId, "ws://localhost:18888/");
 
         await client.register(app.services.detail);
         await app.services.detail.setName("Mr. Handsome");
