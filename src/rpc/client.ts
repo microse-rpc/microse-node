@@ -1,6 +1,7 @@
 import type * as NodeWebSocket from "ws";
 import sequid from "sequid";
-import { compose, decompose, utils } from "@hyurl/structured-clone";
+import type * as NodeV8 from "v8";
+import { utils } from "@hyurl/structured-clone";
 import { ThenableAsyncGenerator, ThenableAsyncGeneratorLike } from 'thenable-generator';
 import type { ModuleProxyApp } from "..";
 import type { ModuleProxy } from "../proxy";
@@ -27,10 +28,9 @@ import {
 } from "../util";
 
 
-var WebSocket = getGlobal("WebSocket");
-const isNodeJS = typeof process === "object" && typeof Buffer === "function";
-
-WebSocket ||= require("ws");
+const WebSocket = getGlobal("WebSocket") || require("ws");
+const isNodeJS = typeof process?.versions?.node === "string";
+const v8: typeof NodeV8 = isNodeJS ? require("v8") : null;
 
 export type Subscriber = (data: any) => void | Promise<void>;
 export type ChannelState = "initiated" | "connecting" | "connected" | "closed";
@@ -41,6 +41,7 @@ export type Task = {
 
 export interface ClientOptions extends ChannelOptions {
     serverId?: string;
+    codec?: "JSON" | "CLONE";
     timeout?: number;
     pingTimeout?: number;
     pingInterval?: number;
@@ -51,6 +52,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
     /** The unique ID of the client, used for the server publishing topics. */
     readonly id: string;
     readonly serverId: string;
+    readonly codec?: ClientOptions["codec"];
     readonly timeout: number;
     readonly pingInterval: number;
     readonly pingTimeout: number;
@@ -74,10 +76,15 @@ export class RpcClient extends RpcChannel implements ClientOptions {
             if (this.protocol === "ws+unix:") {
                 throw new Error("Unix socket is only supported in Node.js");
             }
+
+            if (this.codec === "CLONE") {
+                throw new Error("'CLONE' codec is only supported in Node.js");
+            }
         }
 
         this.id ||= Math.random().toString(16).slice(2);
         this.serverId ||= this.dsn;
+        this.codec ||= "JSON";
         this.timeout ||= 5000;
         this.pingTimeout ||= 5000;
         this.pingInterval ||= 5000;
@@ -106,7 +113,8 @@ export class RpcClient extends RpcChannel implements ClientOptions {
                 hostname,
                 port,
                 pathname,
-                secret
+                secret,
+                codec,
             } = this;
 
             if (this.socket && (
@@ -133,6 +141,10 @@ export class RpcClient extends RpcChannel implements ClientOptions {
 
             if (secret) {
                 url += `&secret=${secret}`;
+            }
+
+            if (codec) {
+                url += `&codec=${codec}`;
             }
 
             if (isNodeJS) {
@@ -163,6 +175,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
                     socket.onerror.call(socket, null);
                 } else {
                     this.state = "connected";
+                    Object.assign(this, { codec: res[2] || "JSON" });
                     this.updateServerId(String(res[1]));
                     this.prepareChannel();
                     this.resume();
@@ -308,13 +321,17 @@ export class RpcClient extends RpcChannel implements ClientOptions {
         if (this.socket?.readyState === WebSocket.OPEN) {
             let msg: string | Buffer;
 
-            if (data[0] === ChannelEvents.THROW && data[4]?.[0] instanceof Error)
+            if (data[0] === ChannelEvents.THROW &&
+                data[4]?.[0] instanceof Error &&
+                this.codec !== "CLONE"
+            ) {
                 data[4][0] = utils.error2object(data[4][0]);
+            }
 
-            if (this.codec === "JSON") {
+            if (this.codec === "CLONE" && !!v8) {
+                msg = v8.serialize(data);
+            } else {
                 msg = JSON.stringify(data);
-            } else if (this.codec === "CLONE") {
-                msg = JSON.stringify(compose(data));
             }
 
             this.socket.send(msg);
@@ -367,10 +384,8 @@ export class RpcClient extends RpcChannel implements ClientOptions {
             let task: Task;
 
             if (typeof data === "object" && data !== null) {
-                if (event === ChannelEvents.THROW) {
+                if (event === ChannelEvents.THROW && this.codec !== "CLONE") {
                     data = utils.object2error(data);
-                } else if (this.codec === "CLONE") {
-                    data = decompose(data);
                 }
             }
 
@@ -435,6 +450,8 @@ export class RpcClient extends RpcChannel implements ClientOptions {
         try {
             if (typeof msg === "string") {
                 res = JSON.parse(msg);
+            } else if (this.codec === "CLONE" && !!v8) {
+                res = v8.deserialize(msg);
             }
         } catch (err) {
             this.handleError(err);

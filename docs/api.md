@@ -170,7 +170,6 @@ interface ChannelOptions {
     pathname?: string;
     secret?: string;
     id?: string;
-    codec?: "JSON" | "CLONE";
     key?: string | Buffer | Buffer[];
     cert?: string | Buffer | Buffer[];
     pfx?: string | Buffer | Buffer[];
@@ -190,12 +189,6 @@ The `id` property is a little ambiguous. On the server-side, if omitted, it will
 fall back to `dsn`, used for the client routing requests. On the client-side, if
 omitted, a random string will be generated, used for the server to publish
 topics.
-
-The `codec` property sets in what format should the data be transferred, default
-value is `JSON`. The `CLONE` codec is based on `JSON`, however with a
-structured clone of the original data, that means it supports more types
-than JSON does, like Date, RegExp, TypedArray, etc. For more information, see
-[@hyurl/structured-clone](https://github.com/hyurl/structured-clone).
 
 If `protocol` is `wss:`, `key` and `cert` (or `pfx`) must be provided in order
 to ship a secure server, and if the key is encrypted, the `passphrase` should
@@ -262,6 +255,7 @@ type Subscriber = (data: any) => void | Promise<void>;
 ```typescript
 interface ClientOptions extends ChannelOptions {
     serverId?: string;
+    codec?: "JSON" | "CLONE";
     timeout?: number;
     pingTimeout?: number;
     pingInterval?: number;
@@ -272,6 +266,13 @@ interface ClientOptions extends ChannelOptions {
 By default, the `serverId` is automatically set according to the `dsn` of the
 server, and updated after established the connect. However, if an ID is set when
 serving the RPC server, it would be better to set `serverId` to that ID as well.
+
+The `codec` property sets in what format should the data be transferred, default
+value is `JSON`. The `CLONE` codec uses the
+[structured clone algorithm](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm), that means it supports more types
+than JSON does, like Date, RegExp, TypedArray, etc. However, the `CLONE` codec
+only works in Node.js (both server side and client side), with non-Node.js
+server, it simply ignores the setting and fallback to `JSON`.
 
 By default `timeout` is set `5000`ms, it is used to force a timeout error when
 an RPC request fires and doesn't get a response after a long time.

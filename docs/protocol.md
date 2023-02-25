@@ -31,7 +31,7 @@ enum ChannelEvents {
 
 ## Connection
 
-To serve and connect an microse server, use the following url syntax:
+To serve and connect a microse server, use the following url syntax:
 
 ```url
 <ws|wss>://<hostname>:<port>[/pathname]?id=<id>[&secret=<key>][&codec=<codec>]
@@ -42,6 +42,8 @@ Or Unix socket path:
 ```url
 [ws+unix:]<filename>?id=<id>[&secret=<key>][&codec=<codec>]
 ```
+
+NOTE: the `codec` option is only used on the client side.
 
 The WebSocket server must check the request on `upgrade` stage, to see if the
 WebSocket connection has an `id` in its request url, and respond
@@ -62,11 +64,17 @@ Once the connection is established, the server shall send a message of
 `CONNECT` event positively in the following signature to perform a handshake:
 
 ```
-[CONNECT, serverId] // for example [1, "test-server"]
+[CONNECT, serverId, codec?] // for example [1, "test-server", "JSON"]
 ```
 
 The client must accept this event in order to update its server map according
 to the `serverId` received.
+
+Even though we can set the `codec` option in the URL, it only means that we
+prefer the one we set, but it's still possible that the server doesn't support
+it, and respond with another codec (or without codec), we should update the
+setting to the responded one or to `JSON` if not present (for old version
+servers).
 
 After the connection is established and the handshake is finished, the client
 and the server are safe to send and receive messages.

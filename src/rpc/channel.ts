@@ -21,7 +21,6 @@ export interface ChannelOptions {
     pathname?: string;
     secret?: string;
     id?: string;
-    codec?: "JSON" | "CLONE";
     key?: string | Buffer | Buffer[];
     cert?: string | Buffer | Buffer[];
     pfx?: string | Buffer | Buffer[];
@@ -39,7 +38,6 @@ export abstract class RpcChannel implements ChannelOptions {
     readonly hostname: string = "127.0.0.1";
     readonly port: number = 80;
     readonly pathname: string = "/";
-    readonly codec: ChannelOptions["codec"];
     readonly secret?: string;
     readonly key?: string | Buffer | Buffer[];
     readonly cert?: string | Buffer | Buffer[];
@@ -74,7 +72,6 @@ export abstract class RpcChannel implements ChannelOptions {
                 "ws+unix://localhost:80"
             );
             let id = searchParams.get("id");
-            let codec = searchParams.get("codec");
             let secret = searchParams.get("secret");
             isUnixSocket = protocol === "ws+unix:";
 
@@ -83,7 +80,6 @@ export abstract class RpcChannel implements ChannelOptions {
                 hostname: isUnixSocket ? "" : hostname,
                 port: isUnixSocket ? 0 : Number(port),
                 id,
-                codec,
                 secret
             });
 
@@ -105,8 +101,6 @@ export abstract class RpcChannel implements ChannelOptions {
         ) {
             throw new Error("IPC on Windows is currently not supported");
         }
-
-        this.codec ||= "JSON";
     }
 
     /** Gets the data source name according to the configuration. */

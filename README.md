@@ -14,6 +14,14 @@ Other implementations:
 - [microse-swoole](https://github.com/microse-rpc/microse-swoole) PHP implementation
     based on swoole
 
+**Important Note:**
+
+Since v1.4.0, Codec `CLONE` now uses
+[v8.serialize](https://nodejs.org/dist/latest-v18.x/docs/api/v8.html#v8serializevalue)
+and [v8.deserialize](https://nodejs.org/dist/latest-v18.x/docs/api/v8.html#v8deserializebuffer)
+for data serialization, and the `codec` option is only set on the client side,
+the server will respond accordingly.
+
 ## Install
 
 ```sh

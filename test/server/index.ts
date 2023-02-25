@@ -20,8 +20,6 @@ define(global, "app", App);
         server = await App.serve({ ...config, id: process.env["USE_ID"] });
     } else if (process.env["USE_SECRET"]) {
         server = await App.serve({ ...config, secret: process.env["USE_SECRET"] });
-    } else if (process.env["USE_CODEC"]) {
-        server = await App.serve({ ...config, codec: <any>process.env["USE_CODEC"] });
     } else if (process.env["USE_COMPRESS"]) {
         server = await App.serve({ ...config, compress: true });
     } else if (process.env["USE_WSS"]) {

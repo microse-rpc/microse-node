@@ -4,8 +4,8 @@ import * as fs from "fs";
 import * as http from "http";
 import * as https from "https";
 import * as WebSocket from "ws";
-import { URL } from "url";
-import { compose, decompose, utils } from '@hyurl/structured-clone';
+import * as v8 from "v8";
+import { utils } from '@hyurl/structured-clone';
 import { isIteratorLike } from "check-iterable";
 import { ThenableAsyncGenerator } from "thenable-generator";
 import isSocketResetError = require("is-socket-reset-error");
@@ -35,7 +35,10 @@ export class RpcServer extends RpcChannel implements ServerOptions {
     readonly httpServer: http.Server | https.Server;
     private wsServer: WebSocket.Server = null;
     private registry: { [name: string]: ModuleProxy<any>; } = dict();
-    private clients = new Map<WebSocket, string>();
+    private clients = new Map<WebSocket, {
+        id: string;
+        codec: "JSON" | "CLONE";
+    }>();
     /** Stores the all suspended generator calls. */
     private tasks = new Map<WebSocket, Map<number, ThenableAsyncGenerator>>();
     private proxyRoot: ModuleProxyApp = null;
@@ -185,13 +188,14 @@ export class RpcServer extends RpcChannel implements ServerOptions {
 
         let clientId = searchParams.get("id");
         let secret = searchParams.get("secret");
+        let codec = searchParams.get("codec") as "JSON" | "CLONE" || "JSON";
 
         if (!clientId || (this.secret && secret !== this.secret)) {
             socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
             socket.destroy();
         } else {
             this.wsServer.handleUpgrade(req, socket, head, client => {
-                this.clients.set(client, clientId);
+                this.clients.set(client, { id: clientId, codec });
                 this.tasks.set(client, new Map());
                 this.wsServer.emit('connection', client, req);
 
@@ -257,7 +261,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
     publish(topic: string, data: any, clients?: string[]) {
         let sent = false;
 
-        for (let [socket, id] of this.clients) {
+        for (let [socket, { id }] of this.clients) {
             if (!clients?.length || clients?.includes(id)) {
                 this.dispatch(socket, ChannelEvents.PUBLISH, topic, data);
                 sent = true;
@@ -271,7 +275,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
     getClients(): string[] {
         let clients: string[] = [];
 
-        for (let [, id] of this.clients) {
+        for (let [, { id }] of this.clients) {
             clients.push(id);
         }
 
@@ -285,32 +289,37 @@ export class RpcServer extends RpcChannel implements ServerOptions {
         data: any = void 0
     ) {
         if (socket.readyState === WebSocket.OPEN) {
+            const { codec } = this.clients.get(socket);
             let msg: string | Buffer;
 
-            if (event === ChannelEvents.THROW && data instanceof Error)
+            if (event === ChannelEvents.THROW &&
+                data instanceof Error &&
+                codec !== "CLONE"
+            ) {
                 data = utils.error2object(data);
+            }
 
             let _data: [ChannelEvents, number | string, any?];
 
             if (event === ChannelEvents.CONNECT) {
-                _data = [event, String(taskId)];
+                _data = [event, String(taskId), codec];
             } else if (event === ChannelEvents.PONG) {
                 _data = [event, Number(taskId)];
             } else {
                 _data = [event, taskId];
 
                 if (data !== undefined || event === ChannelEvents.PUBLISH) {
-                    if (this.codec === "CLONE") {
-                        // Use structured clone algorithm to process data.
-                        _data.push(compose(data));
-                    } else {
-                        _data.push(data);
-                    }
+                    _data.push(data);
                 }
             }
 
             try {
-                msg = JSON.stringify(_data);
+                if (codec === "CLONE") {
+                    msg = v8.serialize(_data);
+                } else {
+                    msg = JSON.stringify(_data);
+                }
+
                 socket.send(msg);
             } catch (err) {
                 this.dispatch(socket, ChannelEvents.THROW, taskId, err);
@@ -342,11 +351,14 @@ export class RpcServer extends RpcChannel implements ServerOptions {
     }
 
     private async handleMessage(socket: WebSocket, msg: string | Buffer) {
+        const { codec } = this.clients.get(socket);
         let req: Request;
 
         try {
             if (typeof msg === "string") {
                 req = JSON.parse(msg);
+            } else if (Buffer.isBuffer(msg) && codec === "CLONE") {
+                req = v8.deserialize(msg);
             }
         } catch (err) {
             this.handleError(err);
@@ -357,10 +369,11 @@ export class RpcServer extends RpcChannel implements ServerOptions {
 
         let [event, taskId, modName, method, args = []] = req;
 
-        if (event === ChannelEvents.THROW && typeof args[0] === "object") {
+        if (event === ChannelEvents.THROW &&
+            typeof args[0] === "object" &&
+            codec !== "CLONE"
+        ) {
             args[0] = utils.object2error(args[0]);
-        } else if (this.codec === "CLONE") {
-            args = decompose(args);
         }
 
         switch (event) {

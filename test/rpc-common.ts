@@ -317,8 +317,8 @@ export default function (App: ModuleProxyApp) {
         await kill(serverProcess);
     });
 
-    it("should serve an RPC service using JSON codec", async () => {
-        let serverProcess = await fork(__dirname + "/server/index.js", { USE_CODEC: "CLONE" });
+    it("should connect the RPC service using CLONE codec", async () => {
+        let serverProcess = await fork(__dirname + "/server/index.js");
         let client = await App.connect({ ...config, codec: "CLONE" });
 
         await client.register(app.services.detail);
