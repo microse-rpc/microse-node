@@ -145,3 +145,41 @@ export async function tryLifeCycleFunction(
         }
     }
 }
+
+/**
+ * Finds all the CommonJS files and their ancestors that require the `filename`.
+ * Useful when watching file changes and hot-reload modules. This function helps
+ * us retrieve all the dependent files that rely on the changed file, and we can
+ * reload them all at once.
+ */
+export function findDependents(
+    filename: string,
+    cachedFiles: string[] = null,
+    preResults: string[] = []
+) {
+    const cache = require.cache;
+    cachedFiles ||= Object.getOwnPropertyNames(cache)
+        .filter(id => !id.includes("node_modules"));
+
+    const dependents: string[] = [];
+
+    for (const id of cachedFiles) {
+        const _module = cache[id];
+
+        if (_module.filename !== filename &&
+            !dependents.includes(_module.filename) &&
+            !preResults.includes(_module.filename) &&
+            _module.children.some(child => child.filename === filename)
+        ) {
+            dependents.push(_module.filename);
+        }
+    }
+
+    dependents.forEach((dep) => {
+        dependents.push(
+            ...findDependents(dep, cachedFiles, [...preResults, ...dependents])
+        );
+    });
+
+    return dependents;
+}

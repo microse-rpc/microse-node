@@ -60,8 +60,8 @@ This class has the following extra properties and methods:
     Connects to an RPC server according to the given options.  If `options` is a
     string, it could be a URL or Unix socket filename.
 - `resolve(path: string): string` Resolves the given path to a module name.
-- `watch(listener?: (event: "change" | "unlink", filename: string)): FSWatcher` 
-    Watches file change and reload the corresponding module.
+- `watch(listener?: (event: "change" | "unlink", filename: string) => void): FSWatcher` 
+    Watches file changes and reload the corresponding module.
     - `listener` if provided, it will be called after the module cache has been
         cleared.
     - `FSWatcher` is a type exposed by 

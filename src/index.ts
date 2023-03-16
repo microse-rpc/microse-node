@@ -11,7 +11,7 @@ import {
     createModuleProxy,
     defaultLoader
 } from "./proxy";
-import { server, dict, tryLifeCycleFunction, } from './util';
+import { server, dict, tryLifeCycleFunction, findDependents } from './util';
 
 export {
     ChannelOptions,
@@ -21,6 +21,7 @@ export {
     ServerOptions,
     ClientOptions,
     FSWatcher,
+    findDependents,
     createModuleProxy,
     ModuleProxy,
     ModuleLoader
@@ -98,8 +99,18 @@ export class ModuleProxyApp extends ModuleProxyBase {
         }
     }
 
-    /** Watches file change and reload the corresponding module. */
-    watch(listener?: (event: "change" | "unlink", filename: string) => void) {
+    /**
+     * Watches file changes and reload the corresponding module.
+     * @param listener Additional listener function for the file's `change` and
+     *  `unlink` events.
+     * @param reloadDependents Reload all the dependent files that rely on the 
+     *  changed file as well. NOTE: This is experimental, and will not trigger
+     *  life cycle functions in the dependents if they have any.
+     */
+    watch(
+        listener?: (event: "change" | "unlink", filename: string) => void,
+        reloadDependents = false
+    ) {
         let { path } = this;
         let clearCache = async (
             event: "change" | "unlink",
@@ -133,6 +144,13 @@ export class ModuleProxyApp extends ModuleProxyBase {
                 }
             } else {
                 this.loader.unload(filename);
+            }
+
+            if (this.loader.cache === require.cache && reloadDependents) {
+                // unload all dependents
+                findDependents(filename).forEach(_filename => {
+                    delete require.cache[_filename];
+                });
             }
 
             cb && cb(event, filename);
