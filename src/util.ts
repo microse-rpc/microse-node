@@ -151,19 +151,30 @@ export async function tryLifeCycleFunction(
  * Useful when watching file changes and hot-reload modules. This function helps
  * us retrieve all the dependent files that rely on the changed file, and we can
  * reload them all at once.
+ * 
+ * @param includes By default, the function searches every cached file except
+ *  the ones in `node_modules` and the `require.main.filename`. We can provide
+ *  this argument to set specific files that can be searched.
  */
 export function findDependents(
     filename: string,
-    cachedFiles: string[] = null,
+    includes: string[] | ((files: string[]) => string[]) = null,
     preResults: string[] = []
 ) {
     const cache = require.cache;
-    cachedFiles ||= Object.getOwnPropertyNames(cache)
-        .filter(id => !id.includes("node_modules"));
+    let targets = Array.isArray(includes)
+        ? includes
+        : Object.getOwnPropertyNames(cache).filter(id => {
+            return id !== require.main?.filename && !id.includes("node_modules");
+        });
+
+    if (typeof includes === "function") {
+        targets = includes(targets);
+    }
 
     const dependents: string[] = [];
 
-    for (const id of cachedFiles) {
+    for (const id of targets) {
         const _module = cache[id];
 
         if (_module.filename !== filename &&
@@ -177,7 +188,7 @@ export function findDependents(
 
     dependents.forEach((dep) => {
         dependents.push(
-            ...findDependents(dep, cachedFiles, [...preResults, ...dependents])
+            ...findDependents(dep, targets, [...preResults, ...dependents])
         );
     });
 

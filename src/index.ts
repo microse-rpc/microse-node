@@ -105,11 +105,13 @@ export class ModuleProxyApp extends ModuleProxyBase {
      *  `unlink` events.
      * @param reloadDependents Reload all the dependent files that rely on the 
      *  changed file as well. NOTE: This is experimental, and will not trigger
-     *  life cycle functions in the dependents if they have any.
+     *  life cycle functions in the dependents if they have any. By default,
+     *  only the files in the same directory of the root proxy app will be
+     *  searched, we can set a function to expand this limit if wanted.
      */
     watch(
         listener?: (event: "change" | "unlink", filename: string) => void,
-        reloadDependents = false
+        reloadDependents: boolean | ((files: string[]) => string[]) = false
     ) {
         let { path } = this;
         let clearCache = async (
@@ -147,8 +149,16 @@ export class ModuleProxyApp extends ModuleProxyBase {
             }
 
             if (this.loader.cache === require.cache && reloadDependents) {
+                const dir = path + sep;
+                const dependents = typeof reloadDependents === "function"
+                    ? findDependents(filename, reloadDependents)
+                    : findDependents(
+                        filename,
+                        files => files.filter(file => file.startsWith(dir))
+                    );
+
                 // unload all dependents
-                findDependents(filename).forEach(_filename => {
+                dependents.forEach(_filename => {
                     delete require.cache[_filename];
                 });
             }
