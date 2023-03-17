@@ -119,34 +119,7 @@ export class ModuleProxyApp extends ModuleProxyBase {
             filename: string,
             cb: Parameters<ModuleProxyApp["watch"]>[0]
         ) => {
-            let name = this.resolve(filename);
-
-            if (name && this.singletons[name]) {
-                let tryUnload = once(() => {
-                    delete this.singletons[name];
-                    this.loader.unload(filename);
-                });
-
-                try {
-                    if (this[server] &&
-                        !this[server]["disableLifeCycle"] &&
-                        this[server]["registry"][name]
-                    ) {
-                        let mod = this[server]["registry"][name];
-                        let handleError = this[server]["handleError"];
-                        await tryLifeCycleFunction(mod, "destroy", handleError);
-                        tryUnload();
-                        await tryLifeCycleFunction(mod, "init", handleError);
-                    } else {
-                        tryUnload();
-                    }
-                } catch (err) {
-                    console.error(err);
-                    tryUnload();
-                }
-            } else {
-                this.loader.unload(filename);
-            }
+            const jobs = [this.unload(filename)];
 
             if (this.loader.cache === require.cache && reloadDependents) {
                 const dir = path + sep;
@@ -158,11 +131,10 @@ export class ModuleProxyApp extends ModuleProxyBase {
                     );
 
                 // unload all dependents
-                dependents.forEach(_filename => {
-                    delete require.cache[_filename];
-                });
+                jobs.push(...dependents.map(file => this.unload(file)));
             }
 
+            await Promise.all(jobs);
             cb && cb(event, filename);
         };
 
@@ -195,6 +167,41 @@ export class ModuleProxyApp extends ModuleProxyBase {
                 }
             }
         });
+    }
+
+    /**
+     * Unloads the module from the cache, if the module is served as a singleton,
+     * unloads the instance as well.
+     */
+    async unload(filename: string) {
+        let name = this.resolve(filename);
+
+        if (name && this.singletons[name]) {
+            let tryUnload = once(() => {
+                delete this.singletons[name];
+                this.loader.unload(filename);
+            });
+
+            try {
+                if (this[server] &&
+                    !this[server]["disableLifeCycle"] &&
+                    this[server]["registry"][name]
+                ) {
+                    let mod = this[server]["registry"][name];
+                    let handleError = this[server]["handleError"];
+                    await tryLifeCycleFunction(mod, "destroy", handleError);
+                    tryUnload();
+                    await tryLifeCycleFunction(mod, "init", handleError);
+                } else {
+                    tryUnload();
+                }
+            } catch (err) {
+                console.error(err);
+                tryUnload();
+            }
+        } else {
+            this.loader.unload(filename);
+        }
     }
 
     /** Sets a custom loader to resolve the module. */
