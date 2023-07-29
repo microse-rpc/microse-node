@@ -11,7 +11,8 @@ import {
     createModuleProxy,
     defaultLoader
 } from "./proxy";
-import { server, dict, tryLifeCycleFunction, findDependents } from './util';
+import { server, dict, tryLifeCycleFunction } from './util';
+import requireChain from "require-chain";
 
 export {
     ChannelOptions,
@@ -21,11 +22,16 @@ export {
     ServerOptions,
     ClientOptions,
     FSWatcher,
-    findDependents,
     createModuleProxy,
     ModuleProxy,
     ModuleLoader
 };
+
+/**
+ * @deprecated Will be removed in the next version, use `requireChain` from
+ *  package `require-chain` instead.
+ */
+export const findDependents = requireChain;
 
 export class ModuleProxyApp extends ModuleProxyBase {
     private [server]: RpcServer = null;
@@ -124,8 +130,8 @@ export class ModuleProxyApp extends ModuleProxyBase {
             if (this.loader.cache === require.cache && reloadDependents) {
                 const dir = path + sep;
                 const dependents = typeof reloadDependents === "function"
-                    ? findDependents(filename, reloadDependents)
-                    : findDependents(
+                    ? requireChain(filename, reloadDependents)
+                    : requireChain(
                         filename,
                         files => files.filter(file => file.startsWith(dir))
                     );
