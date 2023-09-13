@@ -25,7 +25,7 @@ export const defaultLoader: ModuleLoader = {
     cache: require.cache,
     load: require,
     unload(filename) {
-        delete this.cache[filename];
+        delete this.cache?.[filename];
     }
 };
 
@@ -96,11 +96,14 @@ export function createModuleProxy(
     define(proxy, "path", normalize(path), true);
     define(proxy, "__children", dict());
 
+    // @ts-ignore
     app["__cache"][name] = proxy;
     proxy[root] = app;
+    // @ts-ignore
     proxy[Symbol.toStringTag] = "ModuleProxy";
+    // @ts-ignore
     proxy[Symbol.hasInstance] = function ModuleProxy(ins: any) {
-        return ins instanceof proxy.ctor;
+        return proxy.ctor && ins instanceof proxy.ctor;
     };
 
     return applyMagic(<any>proxy, true);
@@ -110,13 +113,14 @@ export function createModuleProxy(
 @applyMagic
 export abstract class ModuleProxy {
     abstract readonly name: string;
-    readonly path: string;
-    protected __children: { [name: string]: ModuleProxy; };
+    readonly path: string = "";
+    protected __children: { [name: string]: ModuleProxy; } | undefined;
+    [root]: ModuleProxyApp | undefined;
 
     get exports(): any {
-        let loader: ModuleLoader = this[root]?.loader;
+        let loader = this[root]?.["loader"];
 
-        if (typeof loader.extension === "string") {
+        if (typeof loader?.extension === "string") {
             return loader.load(this.path + loader.extension);
         } else {
             let dir = dirname(this.path);
@@ -127,7 +131,7 @@ export abstract class ModuleProxy {
                 let ext = extname(file);
                 let _name = basename(file, ext);
 
-                if (_name === name && loader.extension.includes(ext)) {
+                if (_name === name && loader?.extension.includes(ext)) {
                     return loader.load(this.path + ext);
                 }
             }
@@ -154,7 +158,7 @@ export abstract class ModuleProxy {
         }
     }
 
-    get ctor(): new (...args: any[]) => any {
+    get ctor(): (new (...args: any[]) => any) | null {
         let { exports } = this;
 
         if (typeof exports === "object" && typeOf(exports.default) === "class") {
@@ -168,20 +172,20 @@ export abstract class ModuleProxy {
 
     protected __get(prop: string) {
         if (prop in this) {
-            return this[prop];
-        } else if (prop in this.__children) {
+            return (this as any)[prop];
+        } else if (this.__children && prop in this.__children) {
             return this.__children[prop];
-        } else if (typeof prop != "symbol") {
+        } else if (this.__children && typeof prop != "symbol") {
             return this.__children[prop] = createModuleProxy(
                 this.name + "." + String(prop),
                 this.path + sep + String(prop),
-                this[root] || this
+                (this as any)[root] || this
             );
         }
     }
 
     protected __has(prop: string) {
-        return (prop in this) || (prop in this.__children);
+        return (prop in this) || (this.__children && prop in this.__children);
     }
 
     toString() {

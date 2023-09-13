@@ -44,14 +44,14 @@ export abstract class RpcChannel implements ChannelOptions {
     readonly pfx?: string | Buffer | Buffer[];
     readonly ca?: string | Buffer | Buffer[];
     readonly passphrase?: string;
-    protected handleError: (err: Error) => void = err => console.error(err);
+    protected handleError: (err: unknown) => void = err => console.error(err);
 
     constructor(url: string);
     constructor(port: number, hostname?: string);
     constructor(options: ChannelOptions);
     constructor(options: string | number | ChannelOptions, hostname = "") {
         let isAbsPath: boolean;
-        let isUnixSocket: boolean;
+        let isUnixSocket: boolean | undefined;
 
         if (typeof options === "object") {
             Object.assign(this, options);
@@ -118,7 +118,7 @@ export abstract class RpcChannel implements ChannelOptions {
      * Binds an error handler invoked whenever an error occurred in asynchronous
      * operations which can't be caught during run-time.
      */
-    onError(handler: (err: Error) => void) {
+    onError(handler: (err: unknown) => void) {
         this.handleError = handler;
     }
 

@@ -5,21 +5,20 @@ import * as http from "http";
 import * as https from "https";
 import * as WebSocket from "ws";
 import * as v8 from "v8";
-import { utils } from '@hyurl/structured-clone';
+import { toObject as error2object, fromObject as object2error } from "@ayonli/jsext/error";
 import { isIteratorLike } from "check-iterable";
 import { ThenableAsyncGenerator } from "thenable-generator";
-import isSocketResetError = require("is-socket-reset-error");
 import { RpcChannel, Request, ChannelOptions, ChannelEvents } from "./channel";
 import type { ModuleProxyApp, ModuleProxy } from "..";
 import isOwnKey from "@hyurl/utils/isOwnKey";
 import define from "@hyurl/utils/define";
-import values = require('lodash/values');
 import {
     dict,
     root,
     server,
     readyState,
     tryLifeCycleFunction,
+    isSocketResetError,
     throwUnavailableError,
     getInstance
 } from "../util";
@@ -32,8 +31,8 @@ export interface ServerOptions extends ChannelOptions {
 export class RpcServer extends RpcChannel implements ServerOptions {
     /** The unique ID of the server, used for the client routing requests. */
     readonly id: string;
-    readonly httpServer: http.Server | https.Server;
-    private wsServer: WebSocket.Server = null;
+    readonly httpServer: http.Server | https.Server | undefined;
+    private wsServer: WebSocket.Server | null = null;
     private registry: { [name: string]: ModuleProxy<any>; } = dict();
     private clients = new Map<WebSocket, {
         id: string;
@@ -41,7 +40,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
     }>();
     /** Stores the all suspended generator calls. */
     private tasks = new Map<WebSocket, Map<number, ThenableAsyncGenerator>>();
-    private proxyRoot: ModuleProxyApp = null;
+    private proxyRoot: ModuleProxyApp | null = null;
     private useExternalHttpServer: boolean;
 
     constructor(url: string);
@@ -50,16 +49,16 @@ export class RpcServer extends RpcChannel implements ServerOptions {
     constructor(options: string | number | ServerOptions, hostname?: string) {
         super(<any>options, hostname);
         this.id ||= this.dsn;
-        this.httpServer ||= null;
+        this.httpServer ||= undefined;
         this.useExternalHttpServer = !!this.httpServer;
     }
 
     private updateAddress() {
         let dsn = this.dsn;
-        let addr = this.httpServer.address();
+        let addr = this.httpServer?.address();
 
         if (typeof addr === "object") {
-            define(this, "port", addr.port, true);
+            define(this, "port", addr?.port, true);
         }
 
         if (this.id === dsn) {
@@ -70,7 +69,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
     private async ensureDir(dirname: string) {
         try {
             await fs.promises.mkdir(dirname, { recursive: true });
-        } catch (err) {
+        } catch (err: any) {
             if (err["code"] !== "EEXIST")
                 throw err;
         }
@@ -79,7 +78,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
     private async unlinkIfExists(filename: string) {
         try {
             await fs.promises.unlink(filename);
-        } catch (err) {
+        } catch (err: any) {
             if (err["code"] !== "ENOENT")
                 throw err;
         }
@@ -103,7 +102,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
             let { hostname, port, httpServer, useExternalHttpServer } = this;
             let isUnixSocket = protocol === "ws+unix:";
             let callback = () => {
-                httpServer.removeListener("error", reject);
+                httpServer?.removeListener("error", reject);
                 wsServer.on("connection", this.handleConnection.bind(this));
                 wsServer.on("error", this.handleError);
 
@@ -181,7 +180,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
         let {
             pathname: _pathname,
             searchParams
-        } = new URL(req.url, "ws://localhost");
+        } = new URL(req.url as string, "ws://localhost");
 
         if (this.protocol !== "ws+unix:" && _pathname !== this.pathname)
             return;
@@ -194,10 +193,10 @@ export class RpcServer extends RpcChannel implements ServerOptions {
             socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
             socket.destroy();
         } else {
-            this.wsServer.handleUpgrade(req, socket, head, client => {
-                this.clients.set(client, { id: clientId, codec });
+            this.wsServer?.handleUpgrade(req, socket, head, client => {
+                this.clients.set(client, { id: clientId as string, codec });
                 this.tasks.set(client, new Map());
-                this.wsServer.emit('connection', client, req);
+                this.wsServer?.emit('connection', client, req);
 
                 // Notify the client that the connection is ready.
                 this.dispatch(client, ChannelEvents.CONNECT, this.id);
@@ -220,7 +219,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
                     this.clients.clear();
 
                     if (!this.useExternalHttpServer) {
-                        this.httpServer.close(() => {
+                        this.httpServer?.close(() => {
                             resolve();
                         });
                     } else {
@@ -233,7 +232,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
         });
 
         // Perform destructions for every module all at once.
-        await Promise.all(values(this.registry).map(mod => {
+        await Promise.all(Object.values(this.registry).map(mod => {
             return tryLifeCycleFunction(mod, "destroy", this.handleError);
         }));
 
@@ -289,14 +288,14 @@ export class RpcServer extends RpcChannel implements ServerOptions {
         data: any = void 0
     ) {
         if (socket.readyState === WebSocket.OPEN) {
-            const { codec } = this.clients.get(socket);
+            const codec = this.clients.get(socket)?.codec;
             let msg: string | Buffer;
 
             if (event === ChannelEvents.THROW &&
                 data instanceof Error &&
                 codec !== "CLONE"
             ) {
-                data = utils.error2object(data);
+                data = error2object(data);
             }
 
             let _data: [ChannelEvents, number | string, any?];
@@ -351,8 +350,8 @@ export class RpcServer extends RpcChannel implements ServerOptions {
     }
 
     private async handleMessage(socket: WebSocket, msg: string | Buffer) {
-        const { codec } = this.clients.get(socket);
-        let req: Request;
+        const codec = this.clients.get(socket)?.codec;
+        let req: Request | undefined;
 
         try {
             if (typeof msg === "string") {
@@ -373,20 +372,20 @@ export class RpcServer extends RpcChannel implements ServerOptions {
             typeof args[0] === "object" &&
             codec !== "CLONE"
         ) {
-            args[0] = utils.object2error(args[0]);
+            args[0] = object2error(args[0]);
         }
 
         switch (event) {
             case ChannelEvents.INVOKE:
                 await this.handleInvokeEvent(
-                    socket, taskId, modName, method, args);
+                    socket, taskId, modName as string, method as string, args);
                 break;
 
             case ChannelEvents.YIELD:
             case ChannelEvents.RETURN:
             case ChannelEvents.THROW: {
                 await this.handleGeneratorEvents(
-                    socket, event, taskId, modName, method, args[0]);
+                    socket, event, taskId, modName as string, method as string, args[0]);
                 break;
             }
 
@@ -421,7 +420,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
             let task = ins[method](...args);
 
             if (task && isIteratorLike(task)) {
-                tasks.set(<number>taskId, task as any);
+                tasks?.set(<number>taskId, task as any);
                 event = ChannelEvents.INVOKE;
             } else {
                 data = await task;
@@ -451,7 +450,7 @@ export class RpcServer extends RpcChannel implements ServerOptions {
         input: any
     ) {
         let tasks = this.tasks.get(socket);
-        let task = tasks.get(<number>taskId);
+        let task = tasks?.get(<number>taskId);
         let data: any;
 
         try {
@@ -474,12 +473,12 @@ export class RpcServer extends RpcChannel implements ServerOptions {
 
             if (data.done) {
                 event = ChannelEvents.RETURN;
-                tasks.delete(<number>taskId);
+                tasks?.delete(<number>taskId);
             }
         } catch (err) {
             event = ChannelEvents.THROW;
             data = err;
-            task && tasks.delete(<number>taskId);
+            task && tasks?.delete(<number>taskId);
         }
 
         this.dispatch(socket, event, taskId, data);

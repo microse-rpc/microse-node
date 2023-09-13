@@ -12,7 +12,7 @@ import {
     defaultLoader
 } from "./proxy";
 import { server, dict, tryLifeCycleFunction } from './util';
-import requireChain from "require-chain";
+import { findDependents } from "require-chain";
 
 export {
     ChannelOptions,
@@ -27,18 +27,12 @@ export {
     ModuleLoader
 };
 
-/**
- * @deprecated Will be removed in the next version, use `requireChain` from
- *  package `require-chain` instead.
- */
-export const findDependents = requireChain;
-
 export class ModuleProxyApp extends ModuleProxyBase {
-    private [server]: RpcServer = null;
+    private [server]: RpcServer | null = null;
     protected singletons = dict();
     protected remoteSingletons = dict();
-    protected __cache: object;
-    protected loader: ModuleLoader;
+    protected __cache: object | undefined;
+    protected loader: ModuleLoader | undefined;
 
     constructor(
         readonly name: string,
@@ -79,7 +73,7 @@ export class ModuleProxyApp extends ModuleProxyBase {
     }
 
     /** Resolves the given path to a module name. */
-    resolve(path: string): string {
+    resolve(path: string): string | undefined {
         path = resolve(path);
         let dir = this.path + sep;
 
@@ -87,13 +81,13 @@ export class ModuleProxyApp extends ModuleProxyBase {
             let modPath = path.slice(dir.length),
                 ext = extname(modPath);
 
-            if (Array.isArray(this.loader.extension)) {
-                if (this.loader.extension.includes(ext)) {
+            if (Array.isArray(this.loader?.extension)) {
+                if (this.loader?.extension.includes(ext)) {
                     modPath = modPath.slice(0, -ext.length);
                 } else {
                     return;
                 }
-            } else if (ext === this.loader.extension) {
+            } else if (ext === this.loader?.extension) {
                 modPath = modPath.slice(0, -ext.length);
             } else if (ext) {
                 return;
@@ -127,11 +121,11 @@ export class ModuleProxyApp extends ModuleProxyBase {
         ) => {
             const jobs = [this.unload(filename)];
 
-            if (this.loader.cache === require.cache && reloadDependents) {
+            if (this.loader?.cache === require.cache && reloadDependents) {
                 const dir = path + sep;
                 const dependents = typeof reloadDependents === "function"
-                    ? requireChain(filename, reloadDependents)
-                    : requireChain(
+                    ? findDependents(filename, reloadDependents)
+                    : findDependents(
                         filename,
                         files => files.filter(file => file.startsWith(dir))
                     );
@@ -152,10 +146,10 @@ export class ModuleProxyApp extends ModuleProxyBase {
 
                 if (!ext) {
                     return false;
-                } else if (typeof this.loader.extension === "string") {
+                } else if (typeof this.loader?.extension === "string") {
                     return this.loader.extension !== ext;
                 } else {
-                    return !this.loader.extension.includes(ext);
+                    return !this.loader?.extension.includes(ext);
                 }
             }
         }).on("change", (filename) => {
@@ -165,7 +159,7 @@ export class ModuleProxyApp extends ModuleProxyBase {
         }).on("unlinkDir", dirname => {
             dirname = dirname + sep;
 
-            if (this.loader.cache) {
+            if (this.loader?.cache) {
                 for (let filename in this.loader.cache) {
                     if (filename.startsWith(dirname)) {
                         clearCache("unlink", filename, listener);
@@ -184,13 +178,13 @@ export class ModuleProxyApp extends ModuleProxyBase {
 
         if (name && this.singletons[name]) {
             let tryUnload = once(() => {
-                delete this.singletons[name];
-                this.loader.unload(filename);
+                delete this.singletons[name as string];
+                this.loader?.unload(filename);
             });
 
             try {
                 if (this[server] &&
-                    !this[server]["disableLifeCycle"] &&
+                    !(this[server] as any)["disableLifeCycle"] &&
                     this[server]["registry"][name]
                 ) {
                     let mod = this[server]["registry"][name];
@@ -206,7 +200,7 @@ export class ModuleProxyApp extends ModuleProxyBase {
                 tryUnload();
             }
         } else {
-            this.loader.unload(filename);
+            this.loader?.unload(filename);
         }
     }
 

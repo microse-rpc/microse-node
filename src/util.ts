@@ -66,7 +66,8 @@ export function evalRouteId(value: any): number {
                 || value instanceof DataView
                 || ArrayBuffer.isView(value)
             ) {
-                return Number(value["byteLength"] || value["length"]);
+                const arr = value as any;
+                return Number(arr["byteLength"] || arr["length"]);
             } else {
                 return hash(formatObjectStructure(value));
             }
@@ -87,6 +88,12 @@ export function formatObjectStructure(obj: object) {
 
     return token + "}";
 }
+
+export function isSocketResetError(err: unknown) {
+    return err instanceof Error
+        && ((err as any)["code"] == "ECONNRESET"
+            || /socket.*(ended|closed)/i.test(err.message));
+};
 
 export function throwUnavailableError(name: string) {
     throw new ReferenceError(`${name} is not available`);
@@ -112,16 +119,16 @@ export function createInstance(mod: ModuleProxy<any>, forRemote = false) {
 
 export function getInstance(app: ModuleProxyApp, modName: string) {
     return app["singletons"][modName] || (
-        app["singletons"][modName] = createInstance(app["__cache"][modName])
+        app["singletons"][modName] = createInstance((app["__cache"] as any)[modName])
     );
 }
 
 export async function tryLifeCycleFunction(
     mod: ModuleProxy<{ init?(): any, destroy?(): any; }>,
     fn: "init" | "destroy",
-    errorHandle: (err: Error) => void = void 0
+    errorHandle: ((err: unknown) => void) | undefined = void 0
 ) {
-    let ins = getInstance(mod[root], mod.name);
+    let ins = getInstance((mod as any)[root], mod.name);
 
     if (fn === "init") {
         if (typeof ins.init === "function") {

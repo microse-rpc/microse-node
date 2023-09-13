@@ -64,8 +64,11 @@ export function createModuleProxy(
     define(proxy, "name", name);
     define(proxy, "__children", dict());
 
+    // @ts-ignore
     proxy[root] = app;
+    // @ts-ignore
     proxy[Symbol.toStringTag] = "ModuleProxy";
+    // @ts-ignore
     proxy[Symbol.hasInstance] = function ModuleProxy(_: any) {
         return false;
     };
@@ -78,7 +81,7 @@ export abstract class ModuleProxy {
     abstract readonly name: string;
     protected abstract __children: { [name: string]: ModuleProxy; };
 
-    get path(): string {
+    get path(): string | undefined {
         return void 0;
     }
 
@@ -96,13 +99,13 @@ export abstract class ModuleProxy {
 
     protected __get(prop: string) {
         if (prop in this) {
-            return this[prop];
+            return (this as any)[prop];
         } else if (prop in this.__children) {
             return this.__children[prop];
         } else if (typeof prop != "symbol") {
             return this.__children[prop] = createModuleProxy(
                 this.name + "." + String(prop),
-                this[root] || this
+                (this as any)[root] || this
             );
         }
     }

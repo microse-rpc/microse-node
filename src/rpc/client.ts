@@ -1,7 +1,7 @@
 import type * as NodeWebSocket from "ws";
-import sequid from "sequid";
 import type * as NodeV8 from "v8";
-import { utils } from "@hyurl/structured-clone";
+import { sequence } from "@ayonli/jsext/number";
+import { toObject as error2object, fromObject as object2error } from "@ayonli/jsext/error";
 import { ThenableAsyncGenerator, ThenableAsyncGeneratorLike } from 'thenable-generator';
 import type { ModuleProxyApp } from "..";
 import type { ModuleProxy } from "../proxy";
@@ -26,6 +26,7 @@ import {
     throwUnavailableError,
     getInstance
 } from "../util";
+import EventEmitter = require("events");
 
 
 const WebSocket = getGlobal("WebSocket") || require("ws");
@@ -58,13 +59,13 @@ export class RpcClient extends RpcChannel implements ClientOptions {
     readonly pingTimeout: number;
     readonly rejectUnauthorized: boolean;
     private state: ChannelState = "initiated";
-    private socket: WebSocket = null;
+    private socket: WebSocket | null = null;
     private registry: { [name: string]: ModuleProxyType<any>; } = dict();
-    readonly taskId = sequid(0, true);
+    readonly taskId = sequence(0, Number.MAX_SAFE_INTEGER, 1, true);
     readonly tasks = new Map<number, Task>();
     private topics = new Map<string, Set<Subscriber>>();
-    private pingTimer: NodeJS.Timer = null;
-    private destructTimer: NodeJS.Timer = null;
+    private pingTimer: NodeJS.Timer | null = null;
+    private destructTimer: NodeJS.Timer | null = null;
 
     constructor(url: string);
     constructor(port: number, hostname?: string);
@@ -172,7 +173,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
                 if (!Array.isArray(res) || res[0] !== ChannelEvents.CONNECT) {
                     // Protocol error, shall close the channel.
                     this.close();
-                    socket.onerror.call(socket, null);
+                    socket.onerror?.call(socket, null as any);
                 } else {
                     this.state = "connected";
                     Object.assign(this, { codec: res[2] || "JSON" });
@@ -182,7 +183,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
                     resolve();
                 }
             };
-            socket.onerror = ev => {
+            socket.onerror = (ev: any) => {
                 if (ev?.["error"]) {
                     reject(ev["error"]);
                 } else {
@@ -217,8 +218,8 @@ export class RpcClient extends RpcChannel implements ClientOptions {
 
     async register<T>(mod: ModuleProxyType<T>) {
         if (!this.registry[mod.name]) {
-            let singletons = mod[root]["remoteSingletons"][mod.name] || (
-                mod[root]["remoteSingletons"][mod.name] = dict()
+            let singletons = (mod as any)[root]["remoteSingletons"][mod.name] || (
+                ((mod as any)[root] as ModuleProxyApp)["remoteSingletons"][mod.name] = dict()
             );
 
             singletons[this.serverId] = this.createRemoteInstance(mod);
@@ -228,7 +229,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
     }
 
     async deregister<T>(mod: ModuleProxyType<T>) {
-        let singletons = mod[root]?.["remoteSingletons"]?.[mod.name];
+        let singletons = ((mod as any)[root] as ModuleProxyApp)?.["remoteSingletons"]?.[mod.name];
 
         if (singletons?.[this.serverId]) {
             delete singletons[this.serverId];
@@ -249,16 +250,16 @@ export class RpcClient extends RpcChannel implements ClientOptions {
         // Ping the server constantly in order to check connection
         // availability.
         this.pingTimer = setInterval(() => {
-            if (typeof this.socket["ping"] === "function") {
+            if (typeof (this.socket as any)["ping"] === "function") {
                 // Send WebSocket 'ping' frame.
-                this.socket["ping"](Date.now());
+                (this.socket as any)["ping"](Date.now());
             } else {
                 this.send(ChannelEvents.PING, Date.now());
             }
 
             // Set a timer
             this.destructTimer = setTimeout(() => {
-                this.socket.close(1001, "Slow Connection");
+                this.socket?.close(1001, "Slow Connection");
             }, this.pingTimeout);
         }, this.pingInterval);
     }
@@ -279,7 +280,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
             // Update remote singletons map.
             for (let name in this.registry) {
                 let mod: ModuleProxy = this.registry[name];
-                let singletons = mod[root]["remoteSingletons"][name];
+                let singletons = ((mod as any)[root] as ModuleProxyApp)["remoteSingletons"][name];
 
                 if (singletons?.[this.serverId]) {
                     singletons[serverId] = singletons[this.serverId];
@@ -325,7 +326,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
                 data[4]?.[0] instanceof Error &&
                 this.codec !== "CLONE"
             ) {
-                data[4][0] = utils.error2object(data[4][0]);
+                data[4][0] = error2object(data[4][0]);
             }
 
             if (this.codec === "CLONE" && !!v8) {
@@ -334,7 +335,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
                 msg = JSON.stringify(data);
             }
 
-            this.socket.send(msg);
+            this.socket?.send(msg);
         }
     }
 
@@ -353,7 +354,8 @@ export class RpcClient extends RpcChannel implements ClientOptions {
     }
 
     private prepareChannel() {
-        this.socket.onerror = ev => {
+        const socket = this.socket as WebSocket;
+        socket.onerror = (ev: any) => {
             let err: Error;
 
             if (ev?.["error"]) {
@@ -365,7 +367,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
             this.handleError(err);
         };
 
-        this.socket.onclose = () => {
+        socket.onclose = () => {
             // If the socket is closed or reset. but the channel remains open,
             // pause the service immediately and try to reconnect.
             if (!this.connecting && !this.closed) {
@@ -374,18 +376,18 @@ export class RpcClient extends RpcChannel implements ClientOptions {
             }
         };
 
-        this.socket.onmessage = async ({ data: msg }) => {
+        socket.onmessage = async ({ data: msg }) => {
             let res = this.parseResponse(msg);
 
             if (!Array.isArray(res) || typeof res[0] !== "number")
                 return;
 
             let [event, taskId, data = void 0] = res;
-            let task: Task;
+            let task: Task | undefined;
 
             if (typeof data === "object" && data !== null) {
                 if (event === ChannelEvents.THROW && this.codec !== "CLONE") {
-                    data = utils.object2error(data);
+                    data = object2error(data);
                 }
             }
 
@@ -434,9 +436,9 @@ export class RpcClient extends RpcChannel implements ClientOptions {
             }
         };
 
-        if (typeof this.socket["on"] === "function") {
+        if (typeof (this.socket as any)["on"] === "function") {
             // Listen WebSocket 'pong' frame.
-            this.socket["on"]("pong", () => {
+            (this.socket as any as EventEmitter).on("pong", () => {
                 this.destructTimer && clearTimeout(this.destructTimer);
             });
         }
@@ -445,7 +447,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
     }
 
     private parseResponse(msg: any) {
-        let res: Response = null;
+        let res: Response | null = null;
 
         try {
             if (typeof msg === "string") {
@@ -522,7 +524,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
                 // If the RPC server and the RPC client runs in the same process,
                 // then directly call the local instance to prevent unnecessary
                 // network traffics.
-                let app = (<ModuleProxyApp>mod[root]);
+                let app = (mod as any)[root] as ModuleProxyApp;
                 if (app && app[server]?.id === self.serverId) {
                     let ins = getInstance(app, mod.name);
 
@@ -551,7 +553,7 @@ export class RpcClient extends RpcChannel implements ClientOptions {
 }
 
 class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
-    readonly taskId: number = this.client.taskId.next().value;
+    readonly taskId = this.client.taskId.next().value as number;
     private state: "pending" | "closed" = "pending";
     private result: any;
 
@@ -681,12 +683,12 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
         return num + " " + unit;
     }
 
-    private creatTask(call: { readonly stack: string; }) {
+    private createTask(call: { readonly stack: string; }) {
         return {
             resolve: (data: any) => {
                 if (this.state === "pending") {
                     if (this.queue.length > 0) {
-                        this.queue.shift().resolve(data);
+                        this.queue.shift()?.resolve(data);
                     }
                 }
             },
@@ -694,7 +696,7 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
                 if (this.state === "pending") {
                     if (this.queue.length > 0) {
                         this.resolveStackTrace(err, call);
-                        this.queue.shift().reject(err);
+                        this.queue.shift()?.reject(err);
                     }
 
                     this.close();
@@ -712,18 +714,18 @@ class ThenableIteratorProxy implements ThenableAsyncGeneratorLike {
                 let err = new Error(`${callee} timeout after ${duration}`);
 
                 this.resolveStackTrace(err, call);
-                task.reject(err);
+                task?.reject(err);
             }
 
             this.close();
         }, this.client.timeout);
     }
 
-    private prepareTask(event: ChannelEvents, args?: any[]): Promise<any> {
+    private prepareTask(event: ChannelEvents, args: any[] = []): Promise<any> {
         let call = this.captureStackTrack();
 
         if (!this.client.tasks.has(this.taskId)) {
-            this.client.tasks.set(this.taskId, this.creatTask(call));
+            this.client.tasks.set(this.taskId, this.createTask(call));
         }
 
         // Pack every request as Promise, and assign the resolver and rejecter 
