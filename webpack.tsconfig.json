@@ -1,0 +1,9 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "rootDirs": ["src", "node_modules/@ayonli/jsext"],
+        "rootDir": null,
+        "outDir": null,
+        "declaration": false
+    }
+}
