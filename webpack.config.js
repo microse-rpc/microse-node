@@ -1,3 +1,5 @@
+const TerserPlugin = require('terser-webpack-plugin');
+
 module.exports = {
     mode: "production",
     entry: "./src/client/index.ts",
@@ -24,10 +26,20 @@ module.exports = {
                 test: /\.ts?$/,
                 loader: "ts-loader",
                 options: {
-                    allowTsInNodeModules: true,
-                    configFile: "webpack.tsconfig.json",
+                    configFile: "tsconfig.json",
                 }
             }
         ]
-    }
+    },
+    optimization: {
+        minimizer: [
+            new TerserPlugin({
+                parallel: true,
+                terserOptions: {
+                    keep_classnames: true,
+                    keep_fnames: true,
+                },
+            }),
+        ],
+    },
 };

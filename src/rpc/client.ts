@@ -64,8 +64,8 @@ export class RpcClient extends RpcChannel implements ClientOptions {
     readonly taskId = sequence(0, Number.MAX_SAFE_INTEGER, 1, true);
     readonly tasks = new Map<number, Task>();
     private topics = new Map<string, Set<Subscriber>>();
-    private pingTimer: NodeJS.Timer | null = null;
-    private destructTimer: NodeJS.Timer | null = null;
+    private pingTimer: NodeJS.Timeout | null = null;
+    private destructTimer: NodeJS.Timeout | null = null;
 
     constructor(url: string);
     constructor(port: number, hostname?: string);

@@ -1,4 +1,3 @@
-import "source-map-support/register";
 import * as assert from "assert";
 import define from "@hyurl/utils/define";
 import commonTest from "./rpc-common";

@@ -1,4 +1,3 @@
-import "source-map-support/register";
 import * as assert from "assert";
 import * as fs from "fs-extra";
 import * as http from "http";
